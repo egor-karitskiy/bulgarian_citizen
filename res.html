@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дирекция 'Българско гражданство'</title>
+    <script src="/BgInfo/Scripts/jquery-2.1.4.js"></script>
+
+    <script src="/BgInfo/Scripts/jquery.validate.js"></script>
+<script src="/BgInfo/Scripts/jquery.validate.unobtrusive.js"></script>
+
+    <script src="/BgInfo/Scripts/jquery-ui-1.11.4.min.js"></script>
+    <script src="/BgInfo/Scripts/bootstrap.js"></script>
+<script src="/BgInfo/Scripts/respond.js"></script>
+
+    <link href="/BgInfo/Content/themes/base/accordion.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/all.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/autocomplete.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/base.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/button.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/core.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/datepicker.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/dialog.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/draggable.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/menu.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/progressbar.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/resizable.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/selectable.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/selectmenu.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/slider.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/sortable.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/spinner.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/tabs.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/theme.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/themes/base/tooltip.css" rel="stylesheet"/>
+
+    <link href="/BgInfo/Content/bootstrap.css" rel="stylesheet"/>
+<link href="/BgInfo/Content/site.css" rel="stylesheet"/>
+
+    <script src="/BgInfo/Scripts/modernizr-2.6.2.js"></script>
+
+</head>
+<body>
+<div class="container body-content">
+    <img class="img-responsive center-block" src="/BgInfo/Images/header.png"/>
+    <p>&nbsp;</p>
+
+<div class="container">
+
+    <h4>Информация за преписка</h4>
+    <hr/>
+    <p>&nbsp;</p>
+    <div class="validation-summary-errors text-danger"><ul><li>Липсват данни.</li>
+</ul></div>
+<form action="/BgInfo/Home/Enroll" method="post"><input name="__RequestVerificationToken" type="hidden" value="bA3vOKZbH8hcK_obohQKT1qZ3l-qJ4th-GdtWwcBxOCQomIf_lX4ZjUHG5OeS2w5JkBg8ZhNXg_mhCZ19d4kc6I4ZlPew1L1kodoZOpNxYA1" />        <div class="row">
+            <div class="col-xs-4">
+                <div class="well">
+                    <div class="form-group">
+                        <label for="reqNum" class="control-label">Молба вх.номер</label>
+                        <input type="text" class="form-control" id="reqNun" name="reqNum" value="" required="" title="Моля въведете Вашият входящ номер" placeholder="">
+                        <span class="help-block"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="pin" class="control-label">ПИН</label>
+                        <input type="text" class="form-control" id="pin" name="pin" value="" required="" title="Моля въведете Вашият входящ ПИН">
+                        <span class="help-block"></span>
+                    </div>
+                    <button type="submit" class="btn btn-success">Провери</button>
+                </div>
+            </div>
+            <div class="col-xs-8">
+                <ul class="list-unstyled" style="line-height: 2">
+                    <li><span class="fa fa-check text-success"></span> 1.Полетата за Молба вх. номер и ПИН са задължителни. </li>
+                    <li><span class="fa fa-check text-success"></span> 2.Входящият номер на молба е във формат „номер/година“ . Пример: „123/2016“.</li>
+                    <li><span class="fa fa-check text-success"></span> 3.ПИН кодът е вписан в документа, който сте получили при подаването на молбата на гишето в дирекция „Българско гражданство“(за подалите молби след 20 декември 2015).</li>
+                    <li><span class="fa fa-check text-success"></span> 4.Ако сте подали молбата си преди 20 декември 2015 г. Вашия ПИН е полученият при провеждане на интервюто номер на преписка във формат „номер/година“ . Пример: „234/2015“.</li>
+                    <li><span class="fa fa-check text-success"></span> 5.Ако сте подали молбата си преди 20 декември 2015 г. и с Вас не е проведено интервю, ПИН кода ще получите след провеждане на интервюто от служител на Дирекция „Българско гражданство“.</li>
+                </ul>
+            </div>
+        </div>
+</form>    <div class="row">
+        <div class="col-xs-12">
+            &nbsp;
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-xs-12">
+            &nbsp;
+        </div>
+    </div>
+<form action="/BgInfo/Home/EnrollEmbassy" method="post"><input name="__RequestVerificationToken" type="hidden" value="VY0nTNKi81V2P9a-WmmK7QoZjbqzt9ZBPF9Gm2Kj2j021FPiMgGT28nlnlIWmisEAu1VHv33tIYoh8dQAc6XuceUjLjgYq2Hwe16udfbs-41" />        <div class="row">
+            <div class="col-xs-4">
+                <div class="well">
+                    <form>
+                        <div class="form-group">
+                            <label for="regNum" class="control-label">Преписка N:/година</label>
+                            <input type="text" class="form-control" id="regNum" name="regNum" value="" required="" title="Моля въведете Вашият номер на преписка" placeholder="">
+                            <span class="help-block"></span>
+                        </div>
+                        <button type="submit" class="btn btn-success" id="btnCheckEmbassy">Провери</button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-xs-8">
+                <p class="lead">Търсене на преписки подадени по консулски път</p>
+                <ul class="list-unstyled" style="line-height: 2">
+                    <li><span class="fa fa-check text-success"></span>Въведете номера на преписката във формат „номер/година“ . Пример: „231/2014“.</li>
+                </ul>
+            </div>
+        </div>
+</form></div>
+
+
+    <div class="container" style="margin: 30px auto 0 auto; text-align: justify">
+        <hr/>
+        <p>Проектът е осъществен с финансовата подкрепа на Оперативна програма "Административен капацитет" съфинансирана от ЕС чрез Европейския социaлен фонд договор № KC12-33-2/03.09.2013 г. по проект "Изграждане на ефективна администрация на Министерство на правосъдието чрез развитие на системата за е-правосъдие"</p>
+        <hr/>
+        <footer>
+            <p>&copy; 2022 - Дирекция Българско гражданство</p>
+        </footer>
+    </div>
+</div>
+
+    <script src="/BgInfo/Scripts/jquery.validate.js"></script>
+<script src="/BgInfo/Scripts/jquery.validate.unobtrusive.js"></script>
+
+
+</body>
+</html>
