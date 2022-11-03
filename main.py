@@ -188,7 +188,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     job_queue = context.job_queue
     if 'pin' in context.user_data and 'petition number' in context.user_data:
         job_queue.run_repeating(check_status,
-                                interval=10,
+                                interval=3600,
                                 chat_id=update.effective_user.id,
                                 data=context.user_data)
         await update.message.reply_text('Status monitoring is on', reply_markup=ReplyKeyboardRemove(), )
@@ -215,8 +215,6 @@ async def check_status(context: ContextTypes.DEFAULT_TYPE) -> None:
             context.job.data['status']['status_no'].append(last_status_id + 1)
             context.job.data['status']['text'].append(result)
             context.job.data['status']['date'].append(datetime.datetime.now())
-        # else:
-            # await context.bot.send_message(context.job.chat_id, text=f"{result} {last_status}")
 
     else:
         context.job.data['status']['status_no'].append(0)
