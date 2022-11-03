@@ -10,15 +10,15 @@ from dotenv import load_dotenv
 from typing import Dict
 from telegram import __version__ as TG_VER
 
-try:
-    from telegram import __version_info__
-except ImportError:
-    __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
-
-if __version_info__ < (13, 0, 0, "alpha", 1):
-    raise RuntimeError(
-        f"This bot is not compatible with your current version {TG_VER}."
-    )
+# try:
+#     from telegram import __version_info__
+# except ImportError:
+#     __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
+#
+# if __version_info__ < (13, 0, 0, "alpha", 1):
+#     raise RuntimeError(
+#         f"This bot is not compatible with your current version {TG_VER}."
+#     )
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import (
     Application,
