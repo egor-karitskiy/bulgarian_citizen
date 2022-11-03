@@ -1,5 +1,5 @@
 requests
-BeautifulSoup
+BeautifulSoup4
 dotenv
 logging
 datetime
