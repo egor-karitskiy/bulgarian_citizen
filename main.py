@@ -15,7 +15,7 @@ try:
 except ImportError:
     __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
 
-if __version_info__ < (20, 0, 0, "alpha", 1):
+if __version_info__ < (13, 0, 0, "alpha", 1):
     raise RuntimeError(
         f"This bot is not compatible with your current version {TG_VER}."
     )
