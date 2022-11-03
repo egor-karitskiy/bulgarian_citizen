@@ -1,8 +1,5 @@
 requests
 BeautifulSoup4
-dotenv
-logging
-datetime
-typing
+python-dotenv
 python-telegram-bot
 
