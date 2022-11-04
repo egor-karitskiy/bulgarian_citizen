@@ -13,9 +13,9 @@ from telegram import __version__ as TG_VER
 try:
     from telegram import __version_info__
 except ImportError:
-    __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
+    __version_info__ = (0, 0, 0, 0, 0)
 
-if __version_info__ < (13, 0, 0, "alpha", 1):
+if __version_info__ < (20, 0, 0, "alpha", 1):
     raise RuntimeError(
         f"This bot is not compatible with your current version {TG_VER}."
     )
@@ -26,15 +26,13 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler,
     MessageHandler,
-    PicklePersistence,
     filters,
 )
-
-DB_URI = "postgresql://nwfvztdleitkzt:0cd9a9551ceab2cb5efa749f0f85698cbd9405f65e0ce41f0ec4739253bb0cf9@ec2-34-246-227-219.eu-west-1.compute.amazonaws.com:5432/dem9564rmthkkn"
 
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+DB_URI = os.getenv('DB_URI')
 
 CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
 
@@ -227,19 +225,14 @@ async def check_status(context: ContextTypes.DEFAULT_TYPE) -> None:
 def main() -> None:
     """Run the bot."""
 
-    persistence = PicklePersistence(filepath="persistent_data_storage.dat")
-    # application = Application.builder().token(TELEGRAM_TOKEN).persistence(persistence).build()
     application = Application.builder().token(TELEGRAM_TOKEN).persistence(PostgresPersistence(url=DB_URI)).build()
 
-    # Add conversation handler with the states CHOOSING, TYPING_CHOICE and TYPING_REPLY
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
             CHOOSING: [
                 MessageHandler(
                     filters.Regex("^(Petition number|PIN)$"), regular_choice)
-                # ) ,
-                # MessageHandler(filters.Regex("^Something else...$"), custom_choice),
             ],
             TYPING_CHOICE: [
                 MessageHandler(
