@@ -1,4 +1,20 @@
 import datetime
+import os
+
+from github import Github
+from dotenv import load_dotenv
+
+
+
+load_dotenv()
+
+GIT_TOKEN = os.getenv('GIT_TOKEN')
+
+github = Github(GIT_TOKEN)
+repository = github.get_user().get_repo('bulgarian_citizen')
+f = repository.create_file('persistent.dat', "create_file via PyGithub", "egsdfgsdfg")
+
+
 
 user_data ={}
 user_data['statuses'] = {'status_no': [], 'text': [], 'date': []}

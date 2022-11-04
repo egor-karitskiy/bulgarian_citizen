@@ -1,24 +1,24 @@
 import re
 import os
-import time
-
 import requests
 import logging
 import datetime
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from typing import Dict
+from PGpersistence import PostgresPersistence
+
 from telegram import __version__ as TG_VER
 
-# try:
-#     from telegram import __version_info__
-# except ImportError:
-#     __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
-#
-# if __version_info__ < (13, 0, 0, "alpha", 1):
-#     raise RuntimeError(
-#         f"This bot is not compatible with your current version {TG_VER}."
-#     )
+try:
+    from telegram import __version_info__
+except ImportError:
+    __version_info__ = (0, 0, 0, 0, 0)  # type: ignore[assignment]
+
+if __version_info__ < (13, 0, 0, "alpha", 1):
+    raise RuntimeError(
+        f"This bot is not compatible with your current version {TG_VER}."
+    )
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import (
     Application,
@@ -29,6 +29,8 @@ from telegram.ext import (
     PicklePersistence,
     filters,
 )
+
+DB_URI = "postgresql://nwfvztdleitkzt:0cd9a9551ceab2cb5efa749f0f85698cbd9405f65e0ce41f0ec4739253bb0cf9@ec2-34-246-227-219.eu-west-1.compute.amazonaws.com:5432/dem9564rmthkkn"
 
 load_dotenv()
 
@@ -226,7 +228,8 @@ def main() -> None:
     """Run the bot."""
 
     persistence = PicklePersistence(filepath="persistent_data_storage.dat")
-    application = Application.builder().token(TELEGRAM_TOKEN).persistence(persistence).build()
+    # application = Application.builder().token(TELEGRAM_TOKEN).persistence(persistence).build()
+    application = Application.builder().token(TELEGRAM_TOKEN).persistence(PostgresPersistence(url=DB_URI)).build()
 
     # Add conversation handler with the states CHOOSING, TYPING_CHOICE and TYPING_REPLY
     conv_handler = ConversationHandler(
