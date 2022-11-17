@@ -196,7 +196,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     job_queue = context.job_queue
     if 'pin' in context.user_data and 'petition number' in context.user_data:
         job_queue.run_repeating(check_status_routine,
-                                interval=10,
+                                interval=3600,
                                 chat_id=update.effective_user.id,
                                 data=context.user_data)
         await update.message.reply_text('Status monitoring is on', reply_markup=ReplyKeyboardRemove(), )
