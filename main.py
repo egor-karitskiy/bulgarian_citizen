@@ -1,11 +1,15 @@
 import re
 import os
+from urllib.parse import urlparse
+
+import psycopg2
 import requests
 import logging
 import datetime
+
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from typing import Dict
+
 from PGpersistence import PostgresPersistence
 
 from telegram import __version__ as TG_VER
@@ -26,13 +30,20 @@ from telegram.ext import (
     ContextTypes,
     ConversationHandler,
     MessageHandler,
-    filters,
+    filters, PicklePersistence,
 )
 
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 DB_URI = os.getenv('DB_URI')
+
+db_url_parse = urlparse(DB_URI)
+username = db_url_parse.username
+password = db_url_parse.password
+database = db_url_parse.path[1:]
+hostname = db_url_parse.hostname
+port = db_url_parse.port
 
 CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
 
@@ -86,30 +97,31 @@ def request_status(req_num, pin):
     return status
 
 
-def facts_to_str(user_data: Dict[str, str]) -> str:
-    """Helper function for formatting the gathered user info."""
-    facts = [f"{key} - {value}" for key, value in user_data.items()]
-    return "\n".join(facts).join(["\n", "\n"])
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start the conversation, display any stored data and ask user for input."""
-    if 'status' not in context.user_data:
-        context.user_data['status'] = {'status_no': [], 'text': [], 'date': []}
-    context.user_data['id'] = update.effective_user.id
     reply_text = f"Hi! My name is Bulgarian Citizen bot — to be shorty — BulCit " \
                  f"(nothing familiar to 'Bullshit'!). \n" \
-                 f"I help with checking statuses and alerting of your Bulgarian " \
+                 f"I help check and monitor statuses of your Bulgarian " \
                  f"citizenship petition! \n"
 
-    if 'pin' or 'petition number' not in context.user_data:
+    if 'pin' not in context.user_data or 'petition number' not in context.user_data:
         reply_text += (
             "Please provide credentials (petition number and PIN) given by "
-            "Bulgarian Ministry of Justice. "
+            "Bulgarian Ministry of Justice. \n"
             "Push corresponding buttons below to provide info to me."
 
         )
+    else:
+        reply_text += (
+            "You have already provided your PIN and petition number to me. \n"
+            "If you like to change credentials please use corresponding buttons below."
+        )
+
     await update.message.reply_text(reply_text, reply_markup=markup)
+
+    current_jobs = context.job_queue.jobs()
+    for job in current_jobs:
+        job.schedule_removal()
 
     return CHOOSING
 
@@ -156,17 +168,13 @@ async def received_information(update: Update, context: ContextTypes.DEFAULT_TYP
 
 
 async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Display the gathered info and end the conversation."""
-    chat_id = update.effective_message.chat_id
-    if "choice" in context.user_data:
-        del context.user_data["choice"]
-
     await update.message.reply_text(
         f"Current info provided by you is the following:\n"
         f"%s\n"
         f"%s\n"
         f"\n"
         f"%s\n"
+        # f"{context.user_data['status']}"
         % (
             f"Your petition number: {context.user_data['petition number']}"
             if 'petition number' in context.user_data
@@ -187,44 +195,79 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     job_queue = context.job_queue
     if 'pin' in context.user_data and 'petition number' in context.user_data:
-        job_queue.run_repeating(check_status,
-                                interval=3600,
+        job_queue.run_repeating(check_status_routine,
+                                interval=10,
                                 chat_id=update.effective_user.id,
                                 data=context.user_data)
         await update.message.reply_text('Status monitoring is on', reply_markup=ReplyKeyboardRemove(), )
     return ConversationHandler.END
 
 
-async def check_status(context: ContextTypes.DEFAULT_TYPE) -> None:
+async def check_status_routine(context: ContextTypes.DEFAULT_TYPE) -> None:
     pin = context.job.data['pin']
     num = context.job.data['petition number']
+    user_id = context.job.data['id']
     result = request_status(num, pin)
 
-    if context.job.data['status']['status_no']:
-        pin = context.job.data['pin']
-        num = context.job.data['petition number']
-        last_status_id = max(context.job.data['status']['status_no'])
-        last_status = context.job.data['status']['text'][last_status_id]
-        result = request_status(num, pin)
-
-        if result != last_status:
-            status_changed_message = f"Petition status has changed!\n" \
+    if last_status(user_id) is not None:
+        if last_status(user_id) != result:
+            append_new_status(user_id, result)
+            status_changed_message = f"Petition status has been changed!\n" \
                                      f"New status is: {result}"
             await context.bot.send_message(context.job.chat_id, text=status_changed_message)
-
-            context.job.data['status']['status_no'].append(last_status_id + 1)
-            context.job.data['status']['text'].append(result)
-            context.job.data['status']['date'].append(datetime.datetime.now())
-
     else:
-        context.job.data['status']['status_no'].append(0)
-        context.job.data['status']['text'].append(result)
-        context.job.data['status']['date'].append(datetime.datetime.now())
+        append_new_status(user_id, result)
+        first_time_status_message = f"Petition status is the following:\n" \
+                                    f"{result}"
+        await context.bot.send_message(context.job.chat_id, text=first_time_status_message)
+
+
+def append_new_status(user_id, status_text):
+    try:
+        connection = psycopg2.connect(
+            database=database,
+            user=username,
+            password=password,
+            host=hostname,
+            port=port
+        )
+        cursor = connection.cursor()
+        sql_insert_query = """ INSERT INTO statuses (user_id, status, status_date) VALUES (%s,%s,%s)"""
+        record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
+        cursor.execute(sql_insert_query, record_to_insert)
+        connection.commit()
+    except (Exception, psycopg2.Error) as error:
+        raise RuntimeError(
+            f"DB error {error}."
+        )
+
+
+def last_status(user_id):
+    try:
+        connection = psycopg2.connect(
+            database=database,
+            user=username,
+            password=password,
+            host=hostname,
+            port=port
+        )
+        cursor = connection.cursor()
+        sql_select_query = f"SELECT * FROM statuses WHERE user_id = '{user_id}' ORDER BY id DESC LIMIT 1"
+        cursor.execute(sql_select_query)
+        select_result = cursor.fetchall()
+        if not select_result:
+            return None
+        else:
+            return select_result[0][1]
+
+    except (Exception, psycopg2.Error) as error:
+        raise RuntimeError(
+            f"DB error {error}."
+        )
 
 
 def main() -> None:
     """Run the bot."""
-
     application = Application.builder().token(TELEGRAM_TOKEN).persistence(PostgresPersistence(url=DB_URI)).build()
 
     conv_handler = ConversationHandler(
@@ -252,7 +295,6 @@ def main() -> None:
     )
 
     application.add_handler(conv_handler)
-
     application.run_polling()
 
 

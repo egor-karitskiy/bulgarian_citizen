@@ -2,4 +2,3 @@
 *.idea
 .idea
 venv
-lists_experiments.py
