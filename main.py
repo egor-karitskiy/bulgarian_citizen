@@ -7,6 +7,8 @@ import requests
 import logging
 import datetime
 
+import telegram
+from tabulate import tabulate
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from bs4 import BeautifulSoup
@@ -120,7 +122,7 @@ async def regular_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if user_pin_from_db(user_id) is None or user_petition_number_from_db(user_id) is None:
         new_user_creds_record(user_id)
     await update.message.reply_text(f"Please send me your {text}, or type NO if you don't like to "
-                                    f"change {text} already provided by you earilier.")
+                                    f"change {text} already provided by you earlier.")
 
     return TYPING_REPLY
 
@@ -169,7 +171,6 @@ async def received_information(update: Update, context: ContextTypes.DEFAULT_TYP
                      f"Please push 'Petition number' or 'PIN' button!: {user_petition_number_from_db(user_id)}, {is_petition_number_provided}"
 
     await update.message.reply_text(reply_text, reply_markup=markup)
-    print(is_pin_provided, is_petition_number_provided)
 
     return CHOOSING
 
@@ -184,6 +185,19 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     is_petition_number_provided = True
     if user_petition_number_from_db(user_id) is None or user_petition_number_from_db(user_id) == '0':
         is_petition_number_provided = False
+
+    fresh_status = request_status(user_petition_number_from_db(user_id), user_pin_from_db(user_id))
+    last_status_from_db = last_status(user_id)
+
+    if last_status_from_db is None or fresh_status != last_status_from_db:
+        append_new_status(user_id, fresh_status)
+
+    if is_pin_provided and is_petition_number_provided:
+        user_statuses = tabulate(get_user_statuses_list(user_id), headers=['Status', 'Date'])
+        days = datetime.datetime.now() - last_status_date(user_id)
+        days_str = time_delta_to_str(days, "{days} days")
+    else:
+        days_str = '0'
 
     await update.message.reply_text(
         f"Current info provided by you is the following:\n"
@@ -202,17 +216,56 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             else "PIN is not provided yet. Please use /start menu.",
 
             f"Status of your petition is:\n"
-            f"{request_status(user_petition_number_from_db(user_id), user_pin_from_db(user_id))}\n"
+            f"{fresh_status}\n"
+            f"\n"
+            f"{days_str} passed since last status change.\n"
             f"\n"
             f"Monitoring is ON.\n"
             f"I'll let you know when status is changed."
+
             if is_pin_provided and is_petition_number_provided
             else ""
         ),
 
         reply_markup=ReplyKeyboardRemove(),
     )
+
+        # await update.message.reply_text(f'Current statuses log: \n\n\n```\n{user_statuses}```', parse_mode='Markdown')
+        # await update.message.reply_text(f'{days_str} passed since last status change.')
     return ConversationHandler.END
+
+
+def time_delta_to_str(t_delta, fmt):
+    d = {"days": t_delta.days}
+    d["hours"], rem = divmod(t_delta.seconds, 3600)
+    d["minutes"], d["seconds"] = divmod(rem, 60)
+    return fmt.format(**d)
+
+
+def get_user_statuses_list(user_id):
+    try:
+        connection = psycopg2.connect(
+            database=database,
+            user=username,
+            password=password,
+            host=hostname,
+            port=port
+        )
+        cursor = connection.cursor()
+        sql_select_query = f"SELECT status, COALESCE(to_char(status_date, 'DD.MM.YYYY'), '') " \
+                           f"AS status_date_date FROM statuses " \
+                           f"WHERE user_id = '{user_id}' ORDER BY id DESC"
+        cursor.execute(sql_select_query)
+        select_result = cursor.fetchall()
+        if not select_result:
+            return None
+        else:
+            return select_result
+
+    except (Exception, psycopg2.Error) as error:
+        raise RuntimeError(
+            f"DB error {error}."
+        )
 
 
 def append_new_status(user_id, status_text):
@@ -226,7 +279,16 @@ def append_new_status(user_id, status_text):
         )
         cursor = connection.cursor()
         sql_insert_query = """ INSERT INTO statuses (user_id, status, status_date) VALUES (%s,%s,%s)"""
-        record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
+
+        if 'Образувана преписка' in status_text:
+            year_date_text = re.search("(\d\d\.\d\d\.\d{4})", status_text).group(1)
+            datetime_object = datetime.datetime.strptime(year_date_text, '%d.%m.%Y')
+            timestamp = datetime_object.replace(tzinfo=datetime.timezone.utc)
+            record_to_insert = (user_id, status_text, timestamp)
+
+        else:
+            record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
+
         cursor.execute(sql_insert_query, record_to_insert)
         connection.commit()
     except (Exception, psycopg2.Error) as error:
@@ -252,6 +314,30 @@ def last_status(user_id):
             return None
         else:
             return select_result[0][1]
+
+    except (Exception, psycopg2.Error) as error:
+        raise RuntimeError(
+            f"DB error {error}."
+        )
+
+
+def last_status_date(user_id):
+    try:
+        connection = psycopg2.connect(
+            database=database,
+            user=username,
+            password=password,
+            host=hostname,
+            port=port
+        )
+        cursor = connection.cursor()
+        sql_select_query = f"SELECT * FROM statuses WHERE user_id = '{user_id}' ORDER BY id DESC LIMIT 1"
+        cursor.execute(sql_select_query)
+        select_result = cursor.fetchall()
+        if not select_result:
+            return None
+        else:
+            return select_result[0][2]
 
     except (Exception, psycopg2.Error) as error:
         raise RuntimeError(
