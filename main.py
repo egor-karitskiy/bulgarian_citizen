@@ -196,6 +196,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         user_statuses = tabulate(get_user_statuses_list(user_id), headers=['Status', 'Date'])
         days = datetime.datetime.now() - last_status_date(user_id)
         days_str = time_delta_to_str(days, "{days} days")
+        log_record(user_id, fresh_status)
     else:
         days_str = '0'
 
@@ -267,6 +268,27 @@ def get_user_statuses_list(user_id):
             f"DB error {error}."
         )
 
+
+def log_record(user_id, status_text):
+    try:
+        connection = psycopg2.connect(
+            database=database,
+            user=username,
+            password=password,
+            host=hostname,
+            port=port
+        )
+        cursor = connection.cursor()
+        sql_insert_query = """ INSERT INTO logs (user_id, status_text, timestamp) VALUES (%s,%s,%s)"""
+
+        record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
+
+        cursor.execute(sql_insert_query, record_to_insert)
+        connection.commit()
+    except (Exception, psycopg2.Error) as error:
+        raise RuntimeError(
+            f"DB error {error}."
+        )
 
 def append_new_status(user_id, status_text):
     try:
@@ -482,6 +504,7 @@ async def checking_statuses_routine():
         for user_id in user_record:
             fresh_status = request_status(user_petition_number_from_db(user_id), user_pin_from_db(user_id))
             last_status_from_db = last_status(user_id)
+            log_record(user_id, fresh_status)
             if fresh_status != last_status_from_db:
                 try:
                     await bot.send_message(user_id, f'Hey there!!! Here is the new status of your '
