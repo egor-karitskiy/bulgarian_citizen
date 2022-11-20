@@ -7,7 +7,6 @@ import requests
 import logging
 import datetime
 
-import telegram
 from tabulate import tabulate
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -166,7 +165,6 @@ async def received_information(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_text = f"Petition number is provided. But PIN is not!\n" \
                      f"Please push 'PIN' button!:"
     else:
-        is_petition_number_provided = True
         reply_text = f"Credentials are not provided yet.\n" \
                      f"Please push 'Petition number' or 'PIN' button!: {user_petition_number_from_db(user_id)}, {is_petition_number_provided}"
 
@@ -231,8 +229,6 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         reply_markup=ReplyKeyboardRemove(),
     )
 
-        # await update.message.reply_text(f'Current statuses log: \n\n\n```\n{user_statuses}```', parse_mode='Markdown')
-        # await update.message.reply_text(f'{days_str} passed since last status change.')
     return ConversationHandler.END
 
 
@@ -290,6 +286,7 @@ def log_record(user_id, status_text):
             f"DB error {error}."
         )
 
+
 def append_new_status(user_id, status_text):
     try:
         connection = psycopg2.connect(
@@ -303,11 +300,14 @@ def append_new_status(user_id, status_text):
         sql_insert_query = """ INSERT INTO statuses (user_id, status, status_date) VALUES (%s,%s,%s)"""
 
         if 'Образувана преписка' in status_text:
-            year_date_text = re.search("(\d\d\.\d\d\.\d{4})", status_text).group(1)
-            datetime_object = datetime.datetime.strptime(year_date_text, '%d.%m.%Y')
-            timestamp = datetime_object.replace(tzinfo=datetime.timezone.utc)
-            record_to_insert = (user_id, status_text, timestamp)
-
+            year_date_text = re.search("(\d\d\.\d\d\.\d{4})", status_text)
+            if year_date_text is not None:
+                year_date_text = year_date_text.group(1)
+                datetime_object = datetime.datetime.strptime(year_date_text, '%d.%m.%Y')
+                timestamp = datetime_object.replace(tzinfo=datetime.timezone.utc)
+                record_to_insert = (user_id, status_text, timestamp)
+            else:
+                record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
         else:
             record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
 
@@ -315,8 +315,8 @@ def append_new_status(user_id, status_text):
         connection.commit()
     except (Exception, psycopg2.Error) as error:
         raise RuntimeError(
-            f"DB error {error}."
-        )
+            f"DB error {error}.")
+
 
 
 def last_status(user_id):
