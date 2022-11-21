@@ -194,7 +194,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         user_statuses = tabulate(get_user_statuses_list(user_id), headers=['Status', 'Date'])
         days = datetime.datetime.now() - last_status_date(user_id)
         days_str = time_delta_to_str(days, "{days} days")
-        log_record(user_id, fresh_status)
+        log_record(user_id, fresh_status, 'user check')
     else:
         days_str = '0'
 
@@ -265,7 +265,7 @@ def get_user_statuses_list(user_id):
         )
 
 
-def log_record(user_id, status_text):
+def log_record(user_id, status_text, message):
     try:
         connection = psycopg2.connect(
             database=database,
@@ -275,9 +275,9 @@ def log_record(user_id, status_text):
             port=port
         )
         cursor = connection.cursor()
-        sql_insert_query = """ INSERT INTO logs (user_id, status_text, timestamp) VALUES (%s,%s,%s)"""
+        sql_insert_query = """ INSERT INTO logs (user_id, status_text, timestamp, message) VALUES (%s,%s,%s,%s)"""
 
-        record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
+        record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc), message)
 
         cursor.execute(sql_insert_query, record_to_insert)
         connection.commit()
@@ -504,7 +504,7 @@ async def checking_statuses_routine():
         for user_id in user_record:
             fresh_status = request_status(user_petition_number_from_db(user_id), user_pin_from_db(user_id))
             last_status_from_db = last_status(user_id)
-            log_record(user_id, fresh_status)
+            log_record(user_id, fresh_status, 'routine check')
             if fresh_status != last_status_from_db:
                 try:
                     await bot.send_message(user_id, f'Hey there!!! Here is the new status of your '
@@ -520,7 +520,7 @@ def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(checking_statuses_routine, 'interval', seconds=10800)
+    scheduler.add_job(checking_statuses_routine, 'interval', hours=3)
     scheduler.start()
 
     conv_handler = ConversationHandler(
