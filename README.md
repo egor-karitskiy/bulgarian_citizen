@@ -9,7 +9,7 @@ Most probably you could adapt this bot main feature to any task of this kind - u
 
 Bot is available in Telegram as [@bulcit_bot](https://t.me/bulcit_bot). You can use that one or you may fork it and create your own if you like. 
 
-The routine worker of @bulcit_bot app is deployed on Heroku.
+The routine worker of @bulcit_bot app is deployed on [Heroku](https://heroku.com).
 
 Based on [python-telegram-bot](https://python-telegram-bot.org) library.
 
@@ -22,6 +22,6 @@ ____________
 
 Бот работает в Телеграме - [@bulcit_bot](https://t.me/bulcit_bot). Можно пользоваться этим (если вдруг вам это вообще нужно) или форкнуть и доработать под свои нужды. 
 
-Инфраструктура бота развернута в Heroku. 
+Инфраструктура бота развернута в [Heroku](https://heroku.com). 
 
 Использована библиотека [python-telegram-bot](https://python-telegram-bot.org)
