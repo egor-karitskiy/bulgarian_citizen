@@ -6,9 +6,7 @@ import psycopg2
 import requests
 import logging
 import datetime
-import gettext
 
-from tabulate import tabulate
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from bs4 import BeautifulSoup
@@ -27,7 +25,7 @@ from telegram.ext import (
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-DB_URI = os.getenv('DB_URI')
+DB_URI = os.getenv('DATABASE_URL')
 
 db_url_parse = urlparse(DB_URI)
 username = db_url_parse.username
@@ -49,13 +47,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-t_en = gettext.translation("main", localedir="locale", languages=["en"], fallback=True)
-t_ru = gettext.translation("main", localedir="locale", languages=["ru"], fallback=True)
 
-t_en.install()
-
-
-def get_req_token():
+def get_proper_web_token():
     r = requests.get("https://publicbg.mjs.bg/BgInfo/Home/Enroll")
     soup = BeautifulSoup(r.text, 'html.parser')
     for link in soup.find_all('form'):
@@ -65,8 +58,8 @@ def get_req_token():
                     return field.get('value')
 
 
-def request_status(req_num, pin):
-    token = get_req_token()
+def retrieve_status_from_web_site(req_num, pin):
+    token = get_proper_web_token()
     data = {
         '__RequestVerificationToken': token,
         'reqNum': req_num,
@@ -86,24 +79,25 @@ def request_status(req_num, pin):
     if status_object:
         status = status_object.group(1)
         if 'Липсват данни' in status:
-            return _("Incorrect credentials")
+            return "Incorrect credentials"
     else:
-        status = (_("No status appeared"))
+        status = "No status appeared"
     return status
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    is_new_user = True
     user_id = update.message.from_user.id
+
     language_code = update.message.from_user.language_code
     if language_code != 'ru':
         language_code = 'en'
+
+    is_new_user = True
     if user_petition_number_from_db(user_id) is not None or user_pin_from_db(user_id) is not None:
         is_new_user = False
 
     if is_new_user:
         reply_text = get_translated_message('new_user_welcome_message', language_code)
-
     else:
         reply_text = get_translated_message('existing_user_welcome_message', language_code)
 
@@ -113,13 +107,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def regular_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Ask the user for info about the selected predefined choice."""
     text = update.message.text.lower()
     context.user_data["button"] = text
+
     user_id = update.message.from_user.id
+
     language_code = update.message.from_user.language_code
     if language_code != 'ru':
         language_code = 'en'
+
     if user_pin_from_db(user_id) is None or user_petition_number_from_db(user_id) is None:
         new_user_creds_record(user_id, language_code)
 
@@ -161,6 +157,7 @@ async def received_information(update: Update, context: ContextTypes.DEFAULT_TYP
     if pressed_button == 'pin' and not is_wrong_input:
         update_user_pin(user_id, text)
         is_pin_provided = True
+
     if pressed_button == 'petition number' and not is_wrong_input:
         update_user_petition_number(user_id, text)
         is_petition_number_provided = True
@@ -182,6 +179,7 @@ async def received_information(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.message.from_user.id
+
     language_code = update.message.from_user.language_code
     if language_code != 'ru':
         language_code = 'en'
@@ -194,14 +192,14 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if user_petition_number_from_db(user_id) is None or user_petition_number_from_db(user_id) == '0':
         is_petition_number_provided = False
 
-    fresh_status = request_status(user_petition_number_from_db(user_id), user_pin_from_db(user_id))
+    fresh_status = retrieve_status_from_web_site(user_petition_number_from_db(user_id),
+                                                 user_pin_from_db(user_id))
     last_status_from_db = last_status(user_id)
 
     if last_status_from_db is None or fresh_status != last_status_from_db:
         append_new_status(user_id, fresh_status)
 
     if is_pin_provided and is_petition_number_provided:
-        user_statuses = tabulate(get_user_statuses_list(user_id), headers=['Status', 'Date'])
         days = datetime.datetime.now() - last_status_date(user_id)
         days_str = time_delta_to_str(days, "{days}")
         log_record(user_id, fresh_status, 'user check')
@@ -547,7 +545,8 @@ async def checking_statuses_routine():
     users_list = get_users_ids_from_db()
     for user_record in users_list:
         for user_id in user_record:
-            fresh_status = request_status(user_petition_number_from_db(user_id), user_pin_from_db(user_id))
+            fresh_status = retrieve_status_from_web_site(user_petition_number_from_db(user_id),
+                                                         user_pin_from_db(user_id))
             last_status_from_db = last_status(user_id)
             language_code = user_language_from_db(user_id)
             log_record(user_id, fresh_status, 'routine check')
@@ -562,7 +561,6 @@ async def checking_statuses_routine():
 
 
 def main() -> None:
-    """Run the bot."""
     application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     scheduler = AsyncIOScheduler()
@@ -594,6 +592,7 @@ def main() -> None:
     )
 
     application.add_handler(conv_handler)
+    application.add_handler(CommandHandler("start", start))
     application.run_polling()
 
 
