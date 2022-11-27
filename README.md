@@ -7,11 +7,11 @@ The process takes around two-three years and statuses of petition are being chan
 
 Most probably you could adapt this bot main feature to any task of this kind - users notification if some statuses are being changed.
 
-Bot is available in Telegram as @bulcit_bot. You can use that one or you may fork it and create your own if you like. 
+Bot is available in Telegram as [@bulcit_bot] (https://t.me/bulcit_bot). You can use that one or you may fork it and create your own if you like. 
 
 The routine worker of @bulcit_bot app is deployed on Heroku.
 
-Based on python-telegram-bot library.
+Based on [python-telegram-bot] (https://python-telegram-bot.org) library.
 
 
 ____________
@@ -20,8 +20,8 @@ ____________
 
 Наверняка этого бота можно переделать для любой подобной задачи - нотификации пользователей, когда меняются какие-то статусы. 
 
-Бот работает в Телеграме - @bulcit_bot. Можно пользоваться этим (если вдруг вам это вообще нужно) или форкнуть и доработать под свои нужды. 
+Бот работает в Телеграме - [@bulcit_bot] (https://t.me/bulcit_bot). Можно пользоваться этим (если вдруг вам это вообще нужно) или форкнуть и доработать под свои нужды. 
 
 Инфраструктура бота развернута в Heroku. 
 
-Использована библиотека python-telegram-bot
+Использована библиотека [python-telegram-bot] (https://python-telegram-bot.org)
