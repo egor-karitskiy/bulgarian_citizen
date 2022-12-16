@@ -1,5 +1,8 @@
 import re
 import os
+import json
+import jinja2
+
 from urllib.parse import urlparse
 
 import psycopg2
@@ -34,18 +37,51 @@ database = db_url_parse.path[1:]
 hostname = db_url_parse.hostname
 port = db_url_parse.port
 
+environment = jinja2.Environment(loader=jinja2.FileSystemLoader("templates/"))
+template = environment.get_template("email_template.html")
+
 CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
 
 reply_keyboard = [
     ["Petition number", "PIN"],
     ["Done"],
 ]
+
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+
+def send_email(to_addr, message, title):
+    context = {
+        "message": message,
+    }
+
+    result_message = template.render(context)
+
+    api_url = os.environ['TRUSTIFI_URL'] + '/api/i/v1/email'
+
+    headers = {
+        'x-trustifi-key': os.environ['TRUSTIFI_KEY'],
+        'x-trustifi-secret': os.environ['TRUSTIFI_SECRET'],
+        'Content-Type': 'application/json'
+    }
+
+    payload_structured = json.dumps({
+        "recipients": [{
+            "email": to_addr
+        }],
+        "title": title,
+        "html": result_message,
+        "from": {
+            "name": "Bulgarian Citizenship Bot"
+        }
+    })
+
+    requests.post(api_url, headers=headers, data=payload_structured.encode('utf-8'))
 
 
 def get_proper_web_token():
@@ -83,6 +119,48 @@ def retrieve_status_from_web_site(req_num, pin):
     else:
         status = "No status appeared"
     return status
+
+
+async def email_request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user_id = update.message.from_user.id
+
+    language_code = update.message.from_user.language_code
+    if language_code != 'ru':
+        language_code = 'en'
+
+    is_new_user = True
+    if user_petition_number_from_db(user_id) is not None or user_pin_from_db(user_id) is not None:
+        is_new_user = False
+
+    if is_new_user:
+        reply_text = get_translated_message('email_new_user', language_code)
+        await update.message.reply_text(reply_text)
+        return ConversationHandler.END
+    else:
+        reply_text = get_translated_message('give_me_your_email', language_code)
+        await update.message.reply_text(reply_text)
+    return 1
+
+
+async def email_address_receiver(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.message.text
+
+    language_code = update.message.from_user.language_code
+    if language_code != 'ru':
+        language_code = 'en'
+
+    user_id = update.message.from_user.id
+
+    is_wrong_input = False
+    if text.lower() == 'no' or text.lower() == 'pin' or text.lower() == 'petition number':
+        is_wrong_input = True
+
+    if not is_wrong_input:
+        update_user_email(user_id, text)
+        reply_text = get_translated_message('email_provided', language_code)
+        await update.message.reply_text(reply_text)
+
+    return ConversationHandler.END
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -131,7 +209,6 @@ async def regular_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def received_information(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Store info provided by user and ask for the next category."""
     text = update.message.text
     pressed_button = context.user_data["button"]
     del context.user_data["button"]
@@ -202,6 +279,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if is_pin_provided and is_petition_number_provided:
         days = datetime.datetime.now() - last_status_date(user_id)
         days_str = time_delta_to_str(days, "{days}")
+
         log_record(user_id, fresh_status, 'user check')
     else:
         days_str = '0'
@@ -212,6 +290,14 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                          user_pin_from_db(user_id),
                          fresh_status,
                          days_str))
+        to_addr = user_email_from_db(user_id)
+        mail_title = get_translated_message('done_email_title', language_code)
+        mail_message = (get_translated_message('done_email_message', language_code)
+                        % (user_petition_number_from_db(user_id),
+                           user_pin_from_db(user_id),
+                           fresh_status,
+                           days_str))
+        send_email(to_addr, mail_message, mail_title)
 
     elif is_pin_provided and not is_petition_number_provided:
         reply_text = (get_translated_message('pin_provided_pn_not', language_code)
@@ -420,8 +506,8 @@ def new_user_creds_record(user_id, language):
             port=port
         )
         cursor = connection.cursor()
-        sql_insert_query = f""" INSERT INTO creds (user_id, petition_no, pin, language) VALUES (%s,%s,%s,%s)"""
-        record_to_insert = (user_id, '0', '0', language)
+        sql_insert_query = f""" INSERT INTO creds (user_id, petition_no, pin, language, email) VALUES (%s,%s,%s,%s,%s)"""
+        record_to_insert = (user_id, '0', '0', language, '0')
         cursor.execute(sql_insert_query, record_to_insert)
         connection.commit()
     except (Exception, psycopg2.Error) as error:
@@ -441,6 +527,25 @@ def update_user_pin(user_id, pin):
         )
         cursor = connection.cursor()
         sql_insert_query = f"UPDATE creds SET pin='{pin}' where user_id='{user_id}'"
+        cursor.execute(sql_insert_query)
+        connection.commit()
+    except (Exception, psycopg2.Error) as error:
+        raise RuntimeError(
+            "DB error {error}."
+        )
+
+
+def update_user_email(user_id, email):
+    try:
+        connection = psycopg2.connect(
+            database=database,
+            user=username,
+            password=password,
+            host=hostname,
+            port=port
+        )
+        cursor = connection.cursor()
+        sql_insert_query = f"UPDATE creds SET email='{email}' where user_id='{user_id}'"
         cursor.execute(sql_insert_query)
         connection.commit()
     except (Exception, psycopg2.Error) as error:
@@ -540,6 +645,30 @@ def user_language_from_db(user_id):
         )
 
 
+def user_email_from_db(user_id):
+    try:
+        connection = psycopg2.connect(
+            database=database,
+            user=username,
+            password=password,
+            host=hostname,
+            port=port
+        )
+        cursor = connection.cursor()
+        sql_select_query = f"SELECT * FROM creds WHERE user_id = '{user_id}'"
+        cursor.execute(sql_select_query)
+        select_result = cursor.fetchall()
+        if not select_result:
+            return None
+        else:
+            return select_result[0][4]
+
+    except (Exception, psycopg2.Error) as error:
+        raise RuntimeError(
+            "DB error {error}."
+        )
+
+
 async def checking_statuses_routine():
     bot = Bot(TELEGRAM_TOKEN)
     users_list = get_users_ids_from_db()
@@ -555,8 +684,14 @@ async def checking_statuses_routine():
                     reply_text = (get_translated_message('status_changed_message', language_code)
                                   % fresh_status)
                     await bot.send_message(user_id, reply_text)
+
+                    to_addr = user_email_from_db(user_id)
+                    mail_title = get_translated_message('status_changed_email_title', language_code)
+                    mail_message = (get_translated_message('status_changed_email_message', language_code)
+                                    % fresh_status)
+                    send_email(to_addr, mail_message, mail_title)
                 except Exception as error:
-                    raise RuntimeError('Message sent error: {error}')
+                    raise RuntimeError(f'Message sent error: {error}')
                 append_new_status(user_id, fresh_status)
 
 
@@ -591,7 +726,23 @@ def main() -> None:
         persistent=False,
     )
 
+    email_handler = ConversationHandler(
+        entry_points=[CommandHandler("email", email_request)],
+        states={
+            1: [
+                MessageHandler(
+                    filters.TEXT & ~(filters.COMMAND | filters.Regex("^@$")), email_address_receiver
+                )
+            ]
+        },
+        fallbacks=[MessageHandler(filters.Regex("^$"), start)],
+        name="my_conversation_email",
+        persistent=False,
+
+    )
+
     application.add_handler(conv_handler)
+    application.add_handler(email_handler)
     application.add_handler(CommandHandler("start", start))
     application.run_polling()
 
