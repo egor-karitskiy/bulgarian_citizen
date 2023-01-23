@@ -1,21 +1,14 @@
-import re
 import os
-import json
-import jinja2
 
-from urllib.parse import urlparse
-
-import psycopg2
-import requests
 import logging
 import datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, Bot
+
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -25,20 +18,31 @@ from telegram.ext import (
     filters,
 )
 
+from db_operations import (
+    log_record,
+    time_delta_to_str,
+    append_new_status,
+    last_status,
+    last_status_date,
+    user_petition_number_from_db,
+    user_pin_from_db,
+    new_user_creds_record,
+    update_user_pin,
+    update_user_email,
+    get_translated_message,
+    update_user_petition_number,
+    get_users_ids_from_db,
+    user_language_from_db,
+    user_email_from_db,
+    delete_user_creds_record
+)
+
+from email_operations import send_email
+from site_operations import retrieve_status_from_web_site
+
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-DB_URI = os.getenv('DATABASE_URL')
-
-db_url_parse = urlparse(DB_URI)
-username = db_url_parse.username
-password = db_url_parse.password
-database = db_url_parse.path[1:]
-hostname = db_url_parse.hostname
-port = db_url_parse.port
-
-environment = jinja2.Environment(loader=jinja2.FileSystemLoader("templates/"))
-template = environment.get_template("email_template.html")
 
 CHOOSING, TYPING_REPLY, TYPING_CHOICE = range(3)
 
@@ -53,72 +57,6 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-
-
-def send_email(to_addr, message, title):
-    context = {
-        "message": message,
-    }
-
-    result_message = template.render(context)
-
-    api_url = os.environ['TRUSTIFI_URL'] + '/api/i/v1/email'
-
-    headers = {
-        'x-trustifi-key': os.environ['TRUSTIFI_KEY'],
-        'x-trustifi-secret': os.environ['TRUSTIFI_SECRET'],
-        'Content-Type': 'application/json'
-    }
-
-    payload_structured = json.dumps({
-        "recipients": [{
-            "email": to_addr
-        }],
-        "title": title,
-        "html": result_message,
-        "from": {
-            "name": "Bulgarian Citizenship Bot"
-        }
-    })
-
-    requests.post(api_url, headers=headers, data=payload_structured.encode('utf-8'))
-
-
-def get_proper_web_token():
-    r = requests.get("https://publicbg.mjs.bg/BgInfo/Home/Enroll")
-    soup = BeautifulSoup(r.text, 'html.parser')
-    for link in soup.find_all('form'):
-        if link.get('action') == '/BgInfo/Home/Enroll':
-            for field in link.find_all('input'):
-                if field.get('name') == '__RequestVerificationToken':
-                    return field.get('value')
-
-
-def retrieve_status_from_web_site(req_num, pin):
-    token = get_proper_web_token()
-    data = {
-        '__RequestVerificationToken': token,
-        'reqNum': req_num,
-        'pin': pin
-    }
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:106.0) Gecko/20100101 Firefox/106.0',
-        'Referer': 'https://publicbg.mjs.bg/BgInfo/Home/Enroll',
-        'Origin': 'https://publicbg.mjs.bg'
-    }
-    request_given = requests.post('https://publicbg.mjs.bg/BgInfo/Home/Enroll', headers=headers, data=data)
-
-    status_object = re.search('''<div class="validation-summary-errors text-danger"><ul><li>(.+?)\n''',
-                              request_given.text)
-
-    if status_object:
-        status = status_object.group(1)
-        if 'Липсват данни' in status:
-            return "Incorrect credentials"
-    else:
-        status = "No status appeared"
-    return status
 
 
 async def email_request(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -314,385 +252,50 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
-def time_delta_to_str(t_delta, fmt):
-    d = {"days": t_delta.days}
-    d["hours"], rem = divmod(t_delta.seconds, 3600)
-    d["minutes"], d["seconds"] = divmod(rem, 60)
-    return fmt.format(**d)
-
-
-def get_user_statuses_list(user_id):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_select_query = f"SELECT status, COALESCE(to_char(status_date, 'DD.MM.YYYY'), '') " \
-                           f"AS status_date_date FROM statuses " \
-                           f"WHERE user_id = '{user_id}' ORDER BY id DESC"
-        cursor.execute(sql_select_query)
-        select_result = cursor.fetchall()
-        if not select_result:
-            return None
-        else:
-            return select_result
-
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def log_record(user_id, status_text, message):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_insert_query = f""" INSERT INTO logs (user_id, status_text, timestamp, message) VALUES (%s,%s,%s,%s)"""
-
-        record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc), message)
-
-        cursor.execute(sql_insert_query, record_to_insert)
-        connection.commit()
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def append_new_status(user_id, status_text):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_insert_query = f""" INSERT INTO statuses (user_id, status, status_date) VALUES (%s,%s,%s)"""
-
-        if 'Образувана преписка' in status_text:
-            year_date_text = re.search("(\d\d\.\d\d\.\d{4})", status_text)
-            if year_date_text is not None:
-                year_date_text = year_date_text.group(1)
-                datetime_object = datetime.datetime.strptime(year_date_text, '%d.%m.%Y')
-                timestamp = datetime_object.replace(tzinfo=datetime.timezone.utc)
-                record_to_insert = (user_id, status_text, timestamp)
-            else:
-                record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
-        else:
-            record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
-
-        cursor.execute(sql_insert_query, record_to_insert)
-        connection.commit()
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}.")
-
-
-def last_status(user_id):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_select_query = f"SELECT * FROM statuses WHERE user_id = '{user_id}' ORDER BY id DESC LIMIT 1"
-        cursor.execute(sql_select_query)
-        select_result = cursor.fetchall()
-        if not select_result:
-            return None
-        else:
-            return select_result[0][1]
-
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def last_status_date(user_id):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_select_query = f"SELECT * FROM statuses WHERE user_id = '{user_id}' ORDER BY id DESC LIMIT 1"
-        cursor.execute(sql_select_query)
-        select_result = cursor.fetchall()
-        if not select_result:
-            return None
-        else:
-            return select_result[0][2]
-
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def user_petition_number_from_db(user_id):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_select_query = f"SELECT * FROM creds WHERE user_id = '{user_id}'"
-        cursor.execute(sql_select_query)
-        select_result = cursor.fetchall()
-        if not select_result:
-            return None
-        else:
-            return select_result[0][1]
-
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def user_pin_from_db(user_id):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_select_query = f"SELECT * FROM creds WHERE user_id = '{user_id}'"
-        cursor.execute(sql_select_query)
-        select_result = cursor.fetchall()
-        if not select_result:
-            return None
-        else:
-            return select_result[0][2]
-
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def new_user_creds_record(user_id, language):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_insert_query = f""" INSERT INTO creds (user_id, petition_no, pin, language, email) VALUES (%s,%s,%s,%s,%s)"""
-        record_to_insert = (user_id, '0', '0', language, '0')
-        cursor.execute(sql_insert_query, record_to_insert)
-        connection.commit()
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def update_user_pin(user_id, pin):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_insert_query = f"UPDATE creds SET pin='{pin}' where user_id='{user_id}'"
-        cursor.execute(sql_insert_query)
-        connection.commit()
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def update_user_email(user_id, email):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_insert_query = f"UPDATE creds SET email='{email}' where user_id='{user_id}'"
-        cursor.execute(sql_insert_query)
-        connection.commit()
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def get_translated_message(message_code, language):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_select_query = f"SELECT {language} FROM messages WHERE message_code = '{message_code}'"
-        cursor.execute(sql_select_query)
-        select_result = cursor.fetchall()
-        if not select_result:
-            return None
-        else:
-            return select_result[0][0]
-
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def update_user_petition_number(user_id, petition_no):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_insert_query = f"UPDATE creds SET petition_no='{petition_no}' where user_id='{user_id}'"
-        cursor.execute(sql_insert_query)
-        connection.commit()
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def get_users_ids_from_db():
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_select_query = f"SELECT user_id FROM creds"
-        cursor.execute(sql_select_query)
-        select_result = cursor.fetchall()
-        if not select_result:
-            return None
-        else:
-            return select_result
-
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def user_language_from_db(user_id):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_select_query = f"SELECT * FROM creds WHERE user_id = '{user_id}'"
-        cursor.execute(sql_select_query)
-        select_result = cursor.fetchall()
-        if not select_result:
-            return None
-        else:
-            return select_result[0][3]
-
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
-def user_email_from_db(user_id):
-    try:
-        connection = psycopg2.connect(
-            database=database,
-            user=username,
-            password=password,
-            host=hostname,
-            port=port
-        )
-        cursor = connection.cursor()
-        sql_select_query = f"SELECT * FROM creds WHERE user_id = '{user_id}'"
-        cursor.execute(sql_select_query)
-        select_result = cursor.fetchall()
-        if not select_result:
-            return None
-        else:
-            return select_result[0][4]
-
-    except (Exception, psycopg2.Error) as error:
-        raise RuntimeError(
-            "DB error {error}."
-        )
-
-
 async def checking_statuses_routine():
     bot = Bot(TELEGRAM_TOKEN)
     users_list = get_users_ids_from_db()
     for user_record in users_list:
         for user_id in user_record:
-            fresh_status = retrieve_status_from_web_site(user_petition_number_from_db(user_id),
-                                                         user_pin_from_db(user_id))
-            last_status_from_db = last_status(user_id)
-            language_code = user_language_from_db(user_id)
-            log_record(user_id, fresh_status, 'routine check')
-            if fresh_status != last_status_from_db:
-                try:
-                    reply_text = (get_translated_message('status_changed_message', language_code)
-                                  % fresh_status)
-                    await bot.send_message(user_id, reply_text)
+            user_petition_number = user_petition_number_from_db(user_id)
+            user_pin = user_pin_from_db(user_id)
+            creds_provided = True
+            if user_pin == '0':
+                creds_provided = False
+            if user_petition_number == '0':
+                creds_provided = False
 
-                    to_addr = user_email_from_db(user_id)
-                    mail_title = get_translated_message('status_changed_email_title', language_code)
-                    mail_message = (get_translated_message('status_changed_email_message', language_code)
-                                    % fresh_status)
-                    send_email(to_addr, mail_message, mail_title)
-                except Exception as error:
-                    raise RuntimeError(f'Message sent error: {error}')
-                append_new_status(user_id, fresh_status)
+            if creds_provided:
+                fresh_status = retrieve_status_from_web_site(user_petition_number, user_pin)
+                if fresh_status != 'No status appeared':
+                    last_status_from_db = last_status(user_id)
+                    language_code = user_language_from_db(user_id)
+                    log_record(user_id, fresh_status, 'routine check')
+                    if fresh_status != last_status_from_db:
+                        try:
+                            reply_text = (get_translated_message('status_changed_message', language_code)
+                                          % fresh_status)
+                            await bot.send_message(user_id, reply_text)
+
+                            to_addr = user_email_from_db(user_id)
+                            mail_title = get_translated_message('status_changed_email_title', language_code)
+                            mail_message = (get_translated_message('status_changed_email_message', language_code)
+                                            % fresh_status)
+                            send_email(to_addr, mail_message, mail_title)
+                        except Exception as error:
+                            raise RuntimeError(f'Message sent error: {error}')
+                        append_new_status(user_id, fresh_status)
+
+
+def database_empty_creds_cleaner():
+    users_list = get_users_ids_from_db()
+    for user_record in users_list:
+        for user_id in user_record:
+            user_petition_number = user_petition_number_from_db(user_id)
+            user_pin = user_pin_from_db(user_id)
+            if user_petition_number == '0' and user_pin == '0':
+                delete_user_creds_record(user_id)
+                log_record(user_id, 'Empty Creds. Record has been deleted', 'DB cleaner')
 
 
 def main() -> None:
@@ -700,6 +303,7 @@ def main() -> None:
 
     scheduler = AsyncIOScheduler()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=3)
+    scheduler.add_job(database_empty_creds_cleaner, 'interval', hours=12)
     scheduler.start()
 
     conv_handler = ConversationHandler(
