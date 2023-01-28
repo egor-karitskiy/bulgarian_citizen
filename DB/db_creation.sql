@@ -13,7 +13,8 @@ create table creds
     user_id     varchar(255),
     petition_no varchar(255),
     pin         varchar(255),
-    language    varchar
+    language    varchar,
+    email       varchar(255)
 );
 
 

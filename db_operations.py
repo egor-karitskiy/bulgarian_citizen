@@ -203,7 +203,7 @@ def user_pin_from_db(user_id):
         )
 
 
-def new_user_creds_record(user_id, language):
+def new_user_creds_record(user_id, language, user_username, user_full_name):
     try:
         connection = psycopg2.connect(
             database=database,
@@ -214,8 +214,8 @@ def new_user_creds_record(user_id, language):
         )
         cursor = connection.cursor()
         sql_insert_query = \
-            f""" INSERT INTO creds (user_id, petition_no, pin, language, email) VALUES (%s,%s,%s,%s,%s)"""
-        record_to_insert = (user_id, '0', '0', language, '0')
+            f""" INSERT INTO creds (user_id, petition_no, pin, language, email, username, full_name) VALUES (%s,%s,%s,%s,%s,%s,%s)"""
+        record_to_insert = (user_id, '0', '0', language, '0', user_username, user_full_name)
         cursor.execute(sql_insert_query, record_to_insert)
         connection.commit()
     except (Exception, psycopg2.Error) as error:

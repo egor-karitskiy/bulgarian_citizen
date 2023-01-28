@@ -127,13 +127,15 @@ async def regular_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     context.user_data["button"] = text
 
     user_id = update.message.from_user.id
+    user_name = update.message.from_user.username
+    user_full_name = update.message.from_user.full_name
 
     language_code = update.message.from_user.language_code
     if language_code != 'ru':
         language_code = 'en'
 
     if user_pin_from_db(user_id) is None or user_petition_number_from_db(user_id) is None:
-        new_user_creds_record(user_id, language_code)
+        new_user_creds_record(user_id, language_code, user_name, user_full_name)
 
     if text == 'pin':
         reply_text = get_translated_message('give_me_your_pin', language_code)
