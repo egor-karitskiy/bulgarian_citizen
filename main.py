@@ -96,6 +96,7 @@ async def email_address_receiver(update: Update, context: ContextTypes.DEFAULT_T
     if not is_wrong_input:
         update_user_email(user_id, text)
         reply_text = get_translated_message('email_provided', language_code)
+        log_record(user_id, f'email address {text} added', 'email adding procedure')
         await update.message.reply_text(reply_text)
 
     return ConversationHandler.END
@@ -278,7 +279,7 @@ async def checking_statuses_routine():
                             reply_text = (get_translated_message('status_changed_message', language_code)
                                           % fresh_status)
                             await bot.send_message(user_id, reply_text)
-
+                            log_record(user_id, fresh_status, 'Status changed message sent')
                             to_addr = user_email_from_db(user_id)
                             mail_title = get_translated_message('status_changed_email_title', language_code)
                             mail_message = (get_translated_message('status_changed_email_message', language_code)
@@ -297,7 +298,7 @@ def database_empty_creds_cleaner():
             user_pin = user_pin_from_db(user_id)
             if user_petition_number == '0' and user_pin == '0':
                 delete_user_creds_record(user_id)
-                log_record(user_id, 'Empty Creds. Record has been deleted', 'DB cleaner')
+                log_record(user_id, f'Empty Creds for user. Record has been deleted', 'DB cleaner')
 
 
 def main() -> None:
