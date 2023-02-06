@@ -296,6 +296,7 @@ def database_empty_creds_cleaner():
         for user_id in user_record:
             user_petition_number = user_petition_number_from_db(user_id)
             user_pin = user_pin_from_db(user_id)
+            log_record(user_id, 'Checked for empty creds.', 'DB cleaner')
             if user_petition_number == '0' and user_pin == '0':
                 delete_user_creds_record(user_id)
                 log_record(user_id, f'Empty Creds for user. Record has been deleted', 'DB cleaner')
