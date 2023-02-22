@@ -10,9 +10,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DB_URI = os.getenv('DATABASE_URL')
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-db_url_parse = urlparse(DB_URI)
+
+db_url_parse = urlparse(DATABASE_URL)
 username = db_url_parse.username
 password = db_url_parse.password
 database = db_url_parse.path[1:]

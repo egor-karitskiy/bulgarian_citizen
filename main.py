@@ -214,8 +214,13 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                                                  user_pin_from_db(user_id))
     last_status_from_db = last_status(user_id)
 
-    if last_status_from_db is None or fresh_status != last_status_from_db:
+    if last_status_from_db is None:
         append_new_status(user_id, fresh_status)
+        log_record(user_id, 'first status added to DB', 'DB fulfillment')
+
+    if fresh_status != last_status_from_db:
+        append_new_status(user_id, fresh_status)
+        log_record(user_id, 'new status added to DB during user check', 'DB fulfillment')
 
     if is_pin_provided and is_petition_number_provided:
         days = datetime.datetime.now() - last_status_date(user_id)
