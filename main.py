@@ -253,7 +253,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                            days_str))
         if to_addr != '0':
             send_email(to_addr, mail_message, mail_title)
-            log('email', f'Email to {user_name} has been sent')
+            log('email', f'Email to {user_name} has been sent during manual user check')
 
     elif is_pin_provided and not is_petition_number_provided:
         reply_text = (get_translated_message('pin_provided_pn_not', language_code)
@@ -326,12 +326,13 @@ def database_empty_creds_cleaner():
 
 def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
+    log('main', 'Application started')
 
     scheduler = AsyncIOScheduler()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=3)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', hours=12)
     scheduler.start()
-    log('main', 'checking routines have been started')
+    log('main', 'Checking routines have been started')
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -376,8 +377,6 @@ def main() -> None:
     application.add_handler(email_handler)
     application.add_handler(CommandHandler("start", start))
     application.run_polling()
-
-    log('main', 'Application has been started')
 
 
 if __name__ == "__main__":
