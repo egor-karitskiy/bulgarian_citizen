@@ -19,7 +19,7 @@ from telegram.ext import (
 )
 
 from db_operations import (
-    log_record,
+    log,
     time_delta_to_str,
     append_new_status,
     last_status,
@@ -96,7 +96,7 @@ async def email_address_receiver(update: Update, context: ContextTypes.DEFAULT_T
     if not is_wrong_input:
         update_user_email(user_id, text)
         reply_text = get_translated_message('email_provided', language_code)
-        log_record(user_id, f'email address {text} added', 'email adding procedure')
+        log('email', f'email address {text} added for user {user_id}')
         await update.message.reply_text(reply_text)
 
     return ConversationHandler.END
@@ -104,6 +104,7 @@ async def email_address_receiver(update: Update, context: ContextTypes.DEFAULT_T
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.message.from_user.id
+    user_name = update.message.from_user.username
 
     language_code = update.message.from_user.language_code
     if language_code != 'ru':
@@ -115,8 +116,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     if is_new_user:
         reply_text = get_translated_message('new_user_welcome_message', language_code)
+        log('start message', f'New user {user_name} has received welcome message')
     else:
         reply_text = get_translated_message('existing_user_welcome_message', language_code)
+        log('start message', f'Existing user {user_name} has received welcome message')
 
     await update.message.reply_text(reply_text, reply_markup=markup)
 
@@ -137,6 +140,7 @@ async def regular_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     if user_pin_from_db(user_id) is None or user_petition_number_from_db(user_id) is None:
         new_user_creds_record(user_id, language_code, user_name, user_full_name)
+        log('credentials', f'New credentials have been added for user {user_name}')
 
     if text == 'pin':
         reply_text = get_translated_message('give_me_your_pin', language_code)
@@ -151,6 +155,7 @@ async def regular_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def received_information(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text
+    user_name = update.message.from_user.username
     pressed_button = context.user_data["button"]
     del context.user_data["button"]
 
@@ -175,10 +180,12 @@ async def received_information(update: Update, context: ContextTypes.DEFAULT_TYP
     if pressed_button == 'pin' and not is_wrong_input:
         update_user_pin(user_id, text)
         is_pin_provided = True
+        log('credentials', f'PIN for user {user_name} has been updated. New value is {text}')
 
     if pressed_button == 'petition number' and not is_wrong_input:
         update_user_petition_number(user_id, text)
         is_petition_number_provided = True
+        log('credentials', f'Petition number for user {user_name} has been updated. New value is {text}')
 
     if is_pin_provided and is_petition_number_provided:
         reply_text = (get_translated_message('all_set_message', language_code)
@@ -197,6 +204,7 @@ async def received_information(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user_id = update.message.from_user.id
+    user_name = update.message.from_user.username
 
     language_code = update.message.from_user.language_code
     if language_code != 'ru':
@@ -216,17 +224,17 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     if last_status_from_db is None:
         append_new_status(user_id, fresh_status)
-        log_record(user_id, 'first status added to DB', 'DB fulfillment')
+        log('statuses', f'Status added for user {user_name} for the first time. New status is {fresh_status}')
 
     if fresh_status != last_status_from_db:
         append_new_status(user_id, fresh_status)
-        log_record(user_id, 'new status added to DB during user check', 'DB fulfillment')
+        log('statuses', f'Status added for user {user_name}. New status is {fresh_status}')
 
     if is_pin_provided and is_petition_number_provided:
         days = datetime.datetime.now() - last_status_date(user_id)
         days_str = time_delta_to_str(days, "{days}")
 
-        log_record(user_id, fresh_status, 'user check')
+        log('statuses', f'User {user_name} has checked the actual status manually. Status is {fresh_status}')
     else:
         days_str = '0'
 
@@ -243,7 +251,9 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                            user_pin_from_db(user_id),
                            fresh_status,
                            days_str))
-        send_email(to_addr, mail_message, mail_title)
+        if to_addr != '0':
+            send_email(to_addr, mail_message, mail_title)
+            log('email', f'Email to {user_name} has been sent')
 
     elif is_pin_provided and not is_petition_number_provided:
         reply_text = (get_translated_message('pin_provided_pn_not', language_code)
@@ -278,33 +288,40 @@ async def checking_statuses_routine():
                 if fresh_status != 'No status appeared':
                     last_status_from_db = last_status(user_id)
                     language_code = user_language_from_db(user_id)
-                    log_record(user_id, fresh_status, 'routine check')
+                    log('routine check', f'Status for user {user_id} is {fresh_status}')
                     if fresh_status != last_status_from_db:
                         try:
                             reply_text = (get_translated_message('status_changed_message', language_code)
                                           % fresh_status)
                             await bot.send_message(user_id, reply_text)
-                            log_record(user_id, fresh_status, 'Status changed message sent')
+                            log('routine check', f'Changed status message sent for user {user_id}. '
+                                                 f'New status is {fresh_status}')
                             to_addr = user_email_from_db(user_id)
                             mail_title = get_translated_message('status_changed_email_title', language_code)
                             mail_message = (get_translated_message('status_changed_email_message', language_code)
                                             % fresh_status)
-                            send_email(to_addr, mail_message, mail_title)
+                            if to_addr != '0':
+                                send_email(to_addr, mail_message, mail_title)
+                                log('email', f'Email to {user_id} has been sent. During routine check')
+
                         except Exception as error:
                             raise RuntimeError(f'Message sent error: {error}')
                         append_new_status(user_id, fresh_status)
+                        log('statuses', f'New status added to DB for user {user_id}. '
+                                        f'Status is {fresh_status}')
 
 
 def database_empty_creds_cleaner():
     users_list = get_users_ids_from_db()
+    log('DB cleaner', 'DB cleaner routine started')
+
     for user_record in users_list:
         for user_id in user_record:
             user_petition_number = user_petition_number_from_db(user_id)
             user_pin = user_pin_from_db(user_id)
-            log_record(user_id, 'Checked for empty creds.', 'DB cleaner')
             if user_petition_number == '0' and user_pin == '0':
                 delete_user_creds_record(user_id)
-                log_record(user_id, f'Empty Creds for user. Record has been deleted', 'DB cleaner')
+                log('DB cleaner', f'Creds record for user {user_id} has been deleted due to empty creds')
 
 
 def main() -> None:
@@ -314,6 +331,7 @@ def main() -> None:
     scheduler.add_job(checking_statuses_routine, 'interval', hours=3)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', hours=12)
     scheduler.start()
+    log('main', 'checking routines have been started')
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -358,6 +376,8 @@ def main() -> None:
     application.add_handler(email_handler)
     application.add_handler(CommandHandler("start", start))
     application.run_polling()
+
+    log('main', 'Application has been started')
 
 
 if __name__ == "__main__":

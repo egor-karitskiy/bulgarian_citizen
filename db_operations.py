@@ -12,7 +12,6 @@ load_dotenv()
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 
-
 db_url_parse = urlparse(DATABASE_URL)
 username = db_url_parse.username
 password = db_url_parse.password
@@ -48,7 +47,7 @@ def get_user_statuses_list(user_id):
         )
 
 
-def log_record(user_id, status_text, message):
+def log(source, message):
     try:
         connection = psycopg2.connect(
             database=database,
@@ -58,9 +57,9 @@ def log_record(user_id, status_text, message):
             port=port
         )
         cursor = connection.cursor()
-        sql_insert_query = f""" INSERT INTO logs (user_id, status_text, timestamp, message) VALUES (%s,%s,%s,%s)"""
+        sql_insert_query = f""" INSERT INTO new_logs (timestamp, message_source, log_message) VALUES (%s,%s,%s)"""
 
-        record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc), message)
+        record_to_insert = (datetime.datetime.now(datetime.timezone.utc), source, message)
 
         cursor.execute(sql_insert_query, record_to_insert)
         connection.commit()
