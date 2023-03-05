@@ -20,6 +20,7 @@ hostname = db_url_parse.hostname
 port = db_url_parse.port
 
 
+
 def get_user_statuses_list(user_id):
     """for future usage, when list of statuses will be needed"""
     try:
