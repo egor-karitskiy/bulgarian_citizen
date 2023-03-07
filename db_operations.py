@@ -58,7 +58,7 @@ def log(source, message):
             port=port
         )
         cursor = connection.cursor()
-        sql_insert_query = f""" INSERT INTO new_logs (timestamp, message_source, log_message) VALUES (%s,%s,%s)"""
+        sql_insert_query = f""" INSERT INTO logs (timestamp, message_source, log_message) VALUES (%s,%s,%s)"""
 
         record_to_insert = (datetime.datetime.now(datetime.timezone.utc), source, message)
 
