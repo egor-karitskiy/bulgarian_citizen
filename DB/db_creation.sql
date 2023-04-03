@@ -20,11 +20,9 @@ create table creds
 
 create table logs
 (
-    id          serial,
-    user_id     varchar,
-    status_text varchar,
     timestamp   timestamp,
-    message     varchar
+    message_source     varchar,
+    log_message  varchar
 );
 
 

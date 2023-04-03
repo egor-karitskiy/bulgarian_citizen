@@ -1,4 +1,5 @@
 import os
+import time
 
 from dotenv import load_dotenv
 
@@ -39,6 +40,7 @@ async def checking_statuses_routine():
                 creds_provided = False
 
             if creds_provided:
+                time.sleep(5)
                 fresh_status = retrieve_status_from_web_site(user_petition_number, user_pin)
                 if fresh_status != 'No status appeared':
                     last_status_from_db = last_status(user_id)
