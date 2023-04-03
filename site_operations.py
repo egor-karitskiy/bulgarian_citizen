@@ -34,7 +34,7 @@ def retrieve_status_from_web_site(req_num, pin):
 
     if status_object:
         status = status_object.group(1)
-        if 'Липсват данни' or 'Липсва молба' in status:
+        if 'Липсват данни' in status or 'Липсва молба' in status:
             return "Incorrect credentials"
     else:
         status = "No status appeared"
