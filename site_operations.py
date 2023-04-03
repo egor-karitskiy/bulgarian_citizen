@@ -29,7 +29,7 @@ def retrieve_status_from_web_site(req_num, pin):
     }
     request_given = requests.post('https://publicbg.mjs.bg/BgInfo/Home/Enroll', headers=headers, data=data)
 
-    status_object = re.search('''<div class="validation-summary-errors text-danger"><ul><li>(.+?)\n''',
+    status_object = re.search('''<div class="validation-summary-errors text-danger"><ul><li>((.|\n)*?)</li>''',
                               request_given.text)
 
     if status_object:
