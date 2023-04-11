@@ -20,7 +20,6 @@ hostname = db_url_parse.hostname
 port = db_url_parse.port
 
 
-
 def get_user_statuses_list(user_id):
     """for future usage, when list of statuses will be needed"""
     try:
@@ -89,15 +88,14 @@ def append_new_status(user_id, status_text):
         cursor = connection.cursor()
         sql_insert_query = f""" INSERT INTO statuses (user_id, status, status_date) VALUES (%s,%s,%s)"""
 
-        if 'Образувана преписка' in status_text:
-            year_date_text = re.search("(\d\d\.\d\d\.\d{4})", status_text)
-            if year_date_text is not None:
-                year_date_text = year_date_text.group(1)
-                datetime_object = datetime.datetime.strptime(year_date_text, '%d.%m.%Y')
-                timestamp = datetime_object.replace(tzinfo=datetime.timezone.utc)
-                record_to_insert = (user_id, status_text, timestamp)
-            else:
-                record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
+        lines_count = status_text.count('\n')
+        year_date_text = re.search("(\d\d\.\d\d\.\d{4})", status_text)
+
+        if lines_count == 1 and 'Образувана преписка' in status_text and year_date_text is not None:
+            year_date_text = year_date_text.group(1)
+            datetime_object = datetime.datetime.strptime(year_date_text, '%d.%m.%Y')
+            timestamp = datetime_object.replace(tzinfo=datetime.timezone.utc)
+            record_to_insert = (user_id, status_text, timestamp)
         else:
             record_to_insert = (user_id, status_text, datetime.datetime.now(datetime.timezone.utc))
 

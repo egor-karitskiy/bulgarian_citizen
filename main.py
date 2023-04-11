@@ -273,7 +273,6 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     log('main', 'Application started')
-
     scheduler = AsyncIOScheduler()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=3)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', hours=12)

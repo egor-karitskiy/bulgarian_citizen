@@ -3,3 +3,5 @@
 .idea
 venv
 message_draft.txt
+announce.py
+strings.py
