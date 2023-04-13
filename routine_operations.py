@@ -80,6 +80,7 @@ async def database_empty_creds_cleaner():
             language_code = user_language_from_db(user_id)
             user_pin = user_pin_from_db(user_id)
             if user_petition_number == '0' and user_pin == '0':
+                delete_user_creds_record(user_id)
                 log('DB cleaner', f'Creds record for user {user_id} has been deleted due to empty creds')
             if long_wrong_creds_status(user_id):
                 log('DB cleaner', f'Creds record for user {user_id} has been deleted due to wrong creds')

@@ -275,7 +275,7 @@ def main() -> None:
     log('main', 'Application started')
     scheduler = AsyncIOScheduler()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=3)
-    scheduler.add_job(database_empty_creds_cleaner, 'interval', hours=12)
+    scheduler.add_job(database_empty_creds_cleaner, 'interval', hours=4)
     scheduler.start()
     log('main', 'Checking routines have been started')
 
