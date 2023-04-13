@@ -15,7 +15,8 @@ from db_operations import (
     get_users_ids_from_db,
     user_language_from_db,
     user_email_from_db,
-    delete_user_creds_record
+    delete_user_creds_record,
+    long_wrong_creds_status
 )
 
 from email_operations import send_email
@@ -68,14 +69,31 @@ async def checking_statuses_routine():
                                         f'Status is {fresh_status}')
 
 
-def database_empty_creds_cleaner():
+async def database_empty_creds_cleaner():
     users_list = get_users_ids_from_db()
+    bot = Bot(TELEGRAM_TOKEN)
     log('DB cleaner', 'DB cleaner routine started')
 
     for user_record in users_list:
         for user_id in user_record:
             user_petition_number = user_petition_number_from_db(user_id)
+            language_code = user_language_from_db(user_id)
             user_pin = user_pin_from_db(user_id)
             if user_petition_number == '0' and user_pin == '0':
-                delete_user_creds_record(user_id)
                 log('DB cleaner', f'Creds record for user {user_id} has been deleted due to empty creds')
+            if long_wrong_creds_status(user_id):
+                log('DB cleaner', f'Creds record for user {user_id} has been deleted due to wrong creds')
+                try:
+                    reply_text = (get_translated_message('long_wrong_creds_message', language_code))
+                    await bot.send_message(user_id, reply_text)
+                    log('DB cleaner', f'Wrong creds message is sent for user {user_id}')
+                    to_addr = user_email_from_db(user_id)
+                    mail_title = 'Wrong creds!'
+                    mail_message = get_translated_message('long_wrong_creds_message', language_code)
+                    if to_addr != '0':
+                        send_email(to_addr, mail_message, mail_title)
+                        log('DB cleaner', f'Wrong creds email is sent for user {user_id}')
+
+                except Exception as error:
+                    raise RuntimeError(f'Message sent error: {error}')
+                delete_user_creds_record(user_id)

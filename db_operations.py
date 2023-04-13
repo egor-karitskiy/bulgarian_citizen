@@ -393,3 +393,15 @@ def user_email_from_db(user_id):
         raise RuntimeError(
             f"DB error {error}."
         )
+
+
+def long_wrong_creds_status(user_id) -> bool:
+    last_status_from_db = last_status(user_id)
+    if last_status_from_db == "Incorrect credentials":
+        days = datetime.datetime.now() - last_status_date(user_id)
+        threshold = datetime.timedelta(days=7)
+        dif = threshold - days
+        if dif <= datetime.timedelta(days=0):
+            return True
+    return False
+
