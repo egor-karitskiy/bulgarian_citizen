@@ -21,6 +21,7 @@ from db_operations import (
 
 from email_operations import send_email
 from site_operations import retrieve_status_from_web_site
+from translation_operations import translate
 
 load_dotenv()
 
@@ -46,11 +47,12 @@ async def checking_statuses_routine():
                 if fresh_status != 'No status appeared':
                     last_status_from_db = last_status(user_id)
                     language_code = user_language_from_db(user_id)
+                    translated_status = translate(fresh_status, language_code)
                     log('routine check', f'Status for user {user_id} is {fresh_status}')
                     if fresh_status != last_status_from_db:
                         try:
                             reply_text = (get_translated_message('status_changed_message', language_code)
-                                          % fresh_status)
+                                          % (fresh_status, translated_status))
                             await bot.send_message(user_id, reply_text)
                             log('routine check', f'Changed status message sent for user {user_id}. '
                                                  f'New status is {fresh_status}')

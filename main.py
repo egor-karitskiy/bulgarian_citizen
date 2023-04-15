@@ -41,6 +41,7 @@ from db_operations import (
 
 from email_operations import send_email
 from site_operations import retrieve_status_from_web_site
+from translation_operations import translate
 
 load_dotenv()
 
@@ -220,6 +221,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     fresh_status = retrieve_status_from_web_site(user_petition_number_from_db(user_id),
                                                  user_pin_from_db(user_id))
+    translated_status = translate(fresh_status, language_code)
     last_status_from_db = last_status(user_id)
 
     if last_status_from_db is None:
@@ -243,6 +245,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                       % (user_petition_number_from_db(user_id),
                          user_pin_from_db(user_id),
                          fresh_status,
+                         translated_status,
                          days_str))
         to_addr = user_email_from_db(user_id)
         mail_title = get_translated_message('done_email_title', language_code)
@@ -250,6 +253,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                         % (user_petition_number_from_db(user_id),
                            user_pin_from_db(user_id),
                            fresh_status,
+                           translated_status,
                            days_str))
         if to_addr != '0':
             send_email(to_addr, mail_message, mail_title)
@@ -274,7 +278,7 @@ def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     log('main', 'Application started')
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(checking_statuses_routine, 'interval', hours=3)
+    scheduler.add_job(checking_statuses_routine, 'interval', minutes=3)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', hours=4)
     scheduler.start()
     log('main', 'Checking routines have been started')
