@@ -44,5 +44,3 @@ def send_email(to_addr, message, title):
             f"email error: {error}."
         )
 
-
-send_email('egor.karitskiy@gmail.com', 'Я люблю тебя, Жизнь!', 'Проверка связи')
