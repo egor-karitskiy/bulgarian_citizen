@@ -19,7 +19,7 @@ from db_operations import (
     long_wrong_creds_status
 )
 
-from email_operations import send_email
+from email_operations_ya import send_email
 from site_operations import retrieve_status_from_web_site
 from translation_operations import translate
 
@@ -42,7 +42,7 @@ async def checking_statuses_routine():
                 creds_provided = False
 
             if creds_provided:
-                time.sleep(5)
+                time.sleep(60)
                 fresh_status = retrieve_status_from_web_site(user_petition_number, user_pin)
                 if fresh_status != 'No status appeared':
                     last_status_from_db = last_status(user_id)

@@ -39,7 +39,7 @@ from db_operations import (
     user_email_from_db,
 )
 
-from email_operations import send_email
+from email_operations_ya import send_email
 from site_operations import retrieve_status_from_web_site
 from translation_operations import translate
 
