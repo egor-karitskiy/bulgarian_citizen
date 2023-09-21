@@ -43,6 +43,8 @@ from email_operations_ya import send_email
 from site_operations import retrieve_status_from_web_site
 from translation_operations import translate
 
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
