@@ -1,14 +1,15 @@
 import os
-
 import logging
 import datetime
 import time
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
 from dotenv import load_dotenv
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, Bot
+from email_operations import send_email
+from site_operations import retrieve_status_from_web_site
+from translation_operations import translate
 
 from telegram.ext import (
     Application,
@@ -39,10 +40,6 @@ from db_operations import (
     update_user_petition_number,
     user_email_from_db,
 )
-
-from email_operations_ya import send_email
-from site_operations import retrieve_status_from_web_site
-from translation_operations import translate
 
 time.sleep(30)
 
