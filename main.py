@@ -2,6 +2,7 @@ import os
 
 import logging
 import datetime
+import time
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -43,7 +44,7 @@ from email_operations_ya import send_email
 from site_operations import retrieve_status_from_web_site
 from translation_operations import translate
 
-logging.getLogger("httpx").setLevel(logging.WARNING)
+time.sleep(30)
 
 load_dotenv()
 
@@ -58,6 +59,7 @@ reply_keyboard = [
 
 markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
