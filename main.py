@@ -228,6 +228,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if last_status_from_db is None:
         append_new_status(user_id, fresh_status)
         log('statuses', f'Status added for user {user_name} for the first time. New status is {fresh_status}')
+        last_status_from_db = last_status(user_id)
 
     if fresh_status != last_status_from_db:
         append_new_status(user_id, fresh_status)
