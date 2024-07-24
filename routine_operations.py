@@ -116,6 +116,9 @@ async def send_announce_message():
             reply_text = (get_translated_message('announce_message', language_code))
             # await bot.send_message(chat_id=user_id, text=reply_text)
             if announce_status:
-                await bot.send_message(chat_id=user_id, text=reply_text)
+                try:
+                    await bot.send_message(chat_id=user_id, text=reply_text)
+                except Exception as error:
+                    raise RuntimeError(f'Message sent error: {error}')
                 update_announce_status(user_id, False)
                 log('announce', f'Announce message sent for user {user_id}. ')
