@@ -118,7 +118,12 @@ async def send_announce_message():
             if announce_status:
                 try:
                     await bot.send_message(chat_id=user_id, text=reply_text)
+                    update_announce_status(user_id, False)
+                    log('announce', f'Announce message sent for user {user_id}. ')
                 except Exception as error:
+                    update_announce_status(user_id, False)
+                    log('announce', f'Announce message has not been sent for user {user_id} due to error: {error} ')
                     raise RuntimeError(f'Message sent error: {error}')
-                update_announce_status(user_id, False)
-                log('announce', f'Announce message sent for user {user_id}. ')
+
+
+
