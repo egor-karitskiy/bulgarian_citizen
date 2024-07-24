@@ -3,4 +3,6 @@
 .idea
 venv
 announce.py
+message.txt
+temp_status_chech.py
 

@@ -22,7 +22,8 @@ from telegram.ext import (
 
 from routine_operations import (
     checking_statuses_routine,
-    database_empty_creds_cleaner
+    database_empty_creds_cleaner,
+    send_announce_message
 )
 
 from db_operations import (
@@ -224,52 +225,55 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                                                  user_pin_from_db(user_id))
     translated_status = translate(fresh_status, language_code)
     last_status_from_db = last_status(user_id)
-
-    if last_status_from_db is None:
-        append_new_status(user_id, fresh_status)
-        log('statuses', f'Status added for user {user_name} for the first time. New status is {fresh_status}')
-        last_status_from_db = last_status(user_id)
-
-    if fresh_status != last_status_from_db:
-        append_new_status(user_id, fresh_status)
-        log('statuses', f'Status added for user {user_name}. New status is {fresh_status}')
-
-    if is_pin_provided and is_petition_number_provided:
-        days = datetime.datetime.now() - last_status_date(user_id)
-        days_str = time_delta_to_str(days, "{days}")
-
-        log('statuses', f'User {user_name} has checked the actual status manually. Status is {fresh_status}')
+    if fresh_status == 'No status appeared':
+        log('manual check', f'CAPTCHA detected. No way to get proper status.')
+        reply_text = 'CAPTCHA detected. No way to get proper status.'
     else:
-        days_str = '0'
+        if last_status_from_db is None:
+            append_new_status(user_id, fresh_status)
+            log('statuses', f'Status added for user {user_name} for the first time. New status is {fresh_status}')
+            last_status_from_db = last_status(user_id)
 
-    if is_petition_number_provided and is_pin_provided:
-        reply_text = (get_translated_message('done_full_message', language_code)
-                      % (user_petition_number_from_db(user_id),
-                         user_pin_from_db(user_id),
-                         fresh_status,
-                         translated_status,
-                         days_str))
-        to_addr = user_email_from_db(user_id)
-        mail_title = get_translated_message('done_email_title', language_code)
-        mail_message = (get_translated_message('done_email_message', language_code)
-                        % (user_petition_number_from_db(user_id),
-                           user_pin_from_db(user_id),
-                           fresh_status,
-                           translated_status,
-                           days_str))
-        if to_addr != '0':
-            send_email(to_addr, mail_message, mail_title)
-            log('email', f'Email to {user_name} has been sent during manual user check')
+        if fresh_status != last_status_from_db:
+            append_new_status(user_id, fresh_status)
+            log('statuses', f'Status added for user {user_name}. New status is {fresh_status}')
 
-    elif is_pin_provided and not is_petition_number_provided:
-        reply_text = (get_translated_message('pin_provided_pn_not', language_code)
-                      % (user_pin_from_db(user_id)))
+        if is_pin_provided and is_petition_number_provided:
+            days = datetime.datetime.now() - last_status_date(user_id)
+            days_str = time_delta_to_str(days, "{days}")
 
-    elif is_petition_number_provided and not is_pin_provided:
-        reply_text = (get_translated_message('pn_provided_pin_not', language_code)
-                      % (user_petition_number_from_db(user_id)))
-    else:
-        reply_text = get_translated_message('done_no_creds', language_code)
+            log('statuses', f'User {user_name} has checked the actual status manually. Status is {fresh_status}')
+        else:
+            days_str = '0'
+
+        if is_petition_number_provided and is_pin_provided:
+            reply_text = (get_translated_message('done_full_message', language_code)
+                          % (user_petition_number_from_db(user_id),
+                             user_pin_from_db(user_id),
+                             fresh_status,
+                             translated_status,
+                             days_str))
+            to_addr = user_email_from_db(user_id)
+            mail_title = get_translated_message('done_email_title', language_code)
+            mail_message = (get_translated_message('done_email_message', language_code)
+                            % (user_petition_number_from_db(user_id),
+                               user_pin_from_db(user_id),
+                               fresh_status,
+                               translated_status,
+                               days_str))
+            if to_addr != '0':
+                send_email(to_addr, mail_message, mail_title)
+                log('email', f'Email to {user_name} has been sent during manual user check')
+
+        elif is_pin_provided and not is_petition_number_provided:
+            reply_text = (get_translated_message('pin_provided_pn_not', language_code)
+                          % (user_pin_from_db(user_id)))
+
+        elif is_petition_number_provided and not is_pin_provided:
+            reply_text = (get_translated_message('pn_provided_pin_not', language_code)
+                          % (user_petition_number_from_db(user_id)))
+        else:
+            reply_text = get_translated_message('done_no_creds', language_code)
 
     await update.message.reply_text(reply_text, reply_markup=ReplyKeyboardRemove())
 
@@ -282,6 +286,7 @@ def main() -> None:
     scheduler = AsyncIOScheduler()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=3)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', hours=4)
+    scheduler.add_job(send_announce_message, 'interval', minutes=5)
     scheduler.start()
     log('main', 'Checking routines have been started')
 

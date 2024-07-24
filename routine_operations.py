@@ -16,7 +16,9 @@ from db_operations import (
     user_language_from_db,
     user_email_from_db,
     delete_user_creds_record,
-    long_wrong_creds_status
+    long_wrong_creds_status,
+    get_announce_status,
+    update_announce_status
 )
 
 from email_operations import send_email
@@ -44,6 +46,8 @@ async def checking_statuses_routine():
             if creds_provided:
                 time.sleep(60)
                 fresh_status = retrieve_status_from_web_site(user_petition_number, user_pin)
+                if fresh_status == 'No status appeared':
+                    log('routine check', f'CAPTCHA detected. No way to get proper status.')
                 if fresh_status != 'No status appeared':
                     last_status_from_db = last_status(user_id)
                     language_code = user_language_from_db(user_id)
@@ -100,3 +104,18 @@ async def database_empty_creds_cleaner():
                 except Exception as error:
                     raise RuntimeError(f'Message sent error: {error}')
                 delete_user_creds_record(user_id)
+
+
+async def send_announce_message():
+    bot = Bot(TELEGRAM_TOKEN)
+    users_list = get_users_ids_from_db()
+    for user_record in users_list:
+        for user_id in user_record:
+            language_code = user_language_from_db(user_id)
+            announce_status = get_announce_status(user_id)
+            reply_text = (get_translated_message('announce_message', language_code))
+            # await bot.send_message(chat_id=user_id, text=reply_text)
+            if announce_status:
+                await bot.send_message(chat_id=80810688, text=reply_text)
+                update_announce_status(user_id, False)
+            log('announce', f'Announce message sent for user {user_id}. ')

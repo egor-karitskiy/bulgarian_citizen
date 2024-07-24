@@ -405,3 +405,45 @@ def long_wrong_creds_status(user_id) -> bool:
             return True
     return False
 
+
+def get_announce_status(user_id) -> bool:
+    try:
+        connection = psycopg2.connect(
+            database=database,
+            user=username,
+            password=password,
+            host=hostname,
+            port=port
+        )
+        cursor = connection.cursor()
+        sql_select_query = f"SELECT * FROM creds WHERE user_id = '{user_id}'"
+        cursor.execute(sql_select_query)
+        select_result = cursor.fetchall()
+        if not select_result:
+            return False
+        else:
+            return select_result[0][7]
+
+    except (Exception, psycopg2.Error) as error:
+        raise RuntimeError(
+            f"DB error {error}."
+        )
+
+
+def update_announce_status(user_id, announce_status):
+    try:
+        connection = psycopg2.connect(
+            database=database,
+            user=username,
+            password=password,
+            host=hostname,
+            port=port
+        )
+        cursor = connection.cursor()
+        sql_insert_query = f"UPDATE creds SET announce_send='{announce_status}' WHERE user_id='{user_id}'"
+        cursor.execute(sql_insert_query)
+        connection.commit()
+    except (Exception, psycopg2.Error) as error:
+        raise RuntimeError(
+            f"DB error {error}."
+        )
