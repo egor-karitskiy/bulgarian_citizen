@@ -108,6 +108,7 @@ async def database_empty_creds_cleaner():
 
 
 async def send_announce_message():
+    log('announce', 'Announce routine started')
     bot = Bot(TELEGRAM_TOKEN)
     users_list = get_users_ids_from_db()
     for user_record in users_list:
