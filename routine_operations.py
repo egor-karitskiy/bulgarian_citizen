@@ -89,6 +89,7 @@ async def database_empty_creds_cleaner():
                 delete_user_creds_record(user_id)
                 log('DB cleaner', f'Creds record for user {user_id} has been deleted due to empty creds')
             if long_wrong_creds_status(user_id):
+                delete_user_creds_record(user_id)
                 log('DB cleaner', f'Creds record for user {user_id} has been deleted due to wrong creds')
                 try:
                     reply_text = (get_translated_message('long_wrong_creds_message', language_code))
@@ -114,7 +115,6 @@ async def send_announce_message():
             language_code = user_language_from_db(user_id)
             announce_status = get_announce_status(user_id)
             reply_text = (get_translated_message('announce_message', language_code))
-            # await bot.send_message(chat_id=user_id, text=reply_text)
             if announce_status:
                 try:
                     await bot.send_message(chat_id=user_id, text=reply_text)
@@ -124,6 +124,3 @@ async def send_announce_message():
                     update_announce_status(user_id, False)
                     log('announce', f'Announce message has not been sent for user {user_id} due to error: {error} ')
                     raise RuntimeError(f'Message sent error: {error}')
-
-
-
