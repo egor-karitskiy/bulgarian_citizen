@@ -282,8 +282,7 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 def scheduled_tasks():
-    #scheduler = AsyncIOScheduler()
-    scheduler = BackgroundScheduler()
+    scheduler = AsyncIOScheduler()
     scheduler.configure(timezone="Europe/Moscow")
     scheduler.start()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=23)
@@ -292,8 +291,9 @@ def scheduled_tasks():
     log('main', 'Checking routines have been started')
 
 def main() -> None:
-    scheduled_tasks()
+
     application = Application.builder().token(TELEGRAM_TOKEN).build()
+    scheduled_tasks()
     log('main', 'Application started')
 
     conv_handler = ConversationHandler(
@@ -339,6 +339,7 @@ def main() -> None:
     application.add_handler(email_handler)
     application.add_handler(CommandHandler("start", start))
     application.run_polling()
+
 
     log('main', 'Application has been stopped')
 
