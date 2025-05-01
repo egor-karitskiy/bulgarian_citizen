@@ -5,6 +5,7 @@ import time
 import asyncio
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
@@ -281,7 +282,8 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 def scheduled_tasks():
-    scheduler = AsyncIOScheduler()
+    #scheduler = AsyncIOScheduler()
+    scheduler = BackgroundScheduler()
     scheduler.configure(timezone="Europe/Moscow")
     scheduler.start()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=23)
