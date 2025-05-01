@@ -285,10 +285,11 @@ def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     log('main', 'Application started')
     scheduler = AsyncIOScheduler()
+    scheduler.start()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=23)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', days=5)
     scheduler.add_job(send_announce_message, 'interval', hours=11)
-    scheduler.start()
+
     log('main', 'Checking routines have been started')
 
     conv_handler = ConversationHandler(
