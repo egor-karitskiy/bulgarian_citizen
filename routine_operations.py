@@ -125,3 +125,6 @@ async def send_announce_message():
                     update_announce_status(user_id, False)
                     log('announce', f'Announce message has not been sent for user {user_id} due to error: {error} ')
                     raise RuntimeError(f'Message sent error: {error}')
+
+async def test_coroutine():
+    print('test coroutine')

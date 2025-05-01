@@ -25,7 +25,8 @@ from telegram.ext import (
 from routine_operations import (
     checking_statuses_routine,
     database_empty_creds_cleaner,
-    send_announce_message
+    send_announce_message,
+    test_coroutine
 )
 
 from db_operations import (
@@ -281,17 +282,20 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     return ConversationHandler.END
 
-def scheduled_tasks():
+
+async def scheduled_tasks():
     scheduler = AsyncIOScheduler()
     scheduler.configure(timezone="Europe/Moscow")
     scheduler.start()
+    scheduler.add_job(test_coroutine, 'interval', seconds=3)
     scheduler.add_job(checking_statuses_routine, 'interval', hours=23)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', days=5)
     scheduler.add_job(send_announce_message, 'interval', hours=11)
     log('main', 'Checking routines have been started')
+    while True:
+        await asyncio.sleep(1000)
 
 def main() -> None:
-
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     scheduled_tasks()
     log('main', 'Application started')
@@ -340,13 +344,12 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.run_polling()
 
-
     log('main', 'Application has been stopped')
 
 
 if __name__ == "__main__":
     try:
-
-        main()
+        asyncio.run(scheduled_tasks())
+        #main()
     except (KeyboardInterrupt, SystemExit):
         pass
