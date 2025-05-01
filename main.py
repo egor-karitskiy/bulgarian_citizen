@@ -287,7 +287,6 @@ async def scheduled_tasks():
     scheduler = AsyncIOScheduler()
     scheduler.configure(timezone="Europe/Moscow")
     scheduler.start()
-    scheduler.add_job(test_coroutine, 'interval', seconds=3)
     scheduler.add_job(checking_statuses_routine, 'interval', hours=23)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', days=5)
     scheduler.add_job(send_announce_message, 'interval', hours=11)
@@ -349,7 +348,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        #asyncio.run(scheduled_tasks())
         main()
     except (KeyboardInterrupt, SystemExit):
         pass
