@@ -25,8 +25,7 @@ from telegram.ext import (
 from routine_operations import (
     checking_statuses_routine,
     database_empty_creds_cleaner,
-    send_announce_message,
-    test_coroutine
+    send_announce_message
 )
 
 from db_operations import (
