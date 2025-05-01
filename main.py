@@ -2,6 +2,7 @@ import os
 import logging
 import datetime
 import time
+import asyncio
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
@@ -42,7 +43,7 @@ from db_operations import (
     user_email_from_db,
 )
 
-time.sleep(30)
+time.sleep(3)
 
 load_dotenv()
 
@@ -338,4 +339,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        main()
+    except (KeyboardInterrupt, SystemExit):
+        pass
