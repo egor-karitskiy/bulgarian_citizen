@@ -297,7 +297,6 @@ async def scheduled_tasks():
 
 def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
-    scheduled_tasks()
     log('main', 'Application started')
 
     conv_handler = ConversationHandler(
@@ -342,14 +341,15 @@ def main() -> None:
     application.add_handler(conv_handler)
     application.add_handler(email_handler)
     application.add_handler(CommandHandler("start", start))
-    application.run_polling()
+    asyncio.run(scheduled_tasks())
+    application.run_polling(close_loop=False)
 
     log('main', 'Application has been stopped')
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(scheduled_tasks())
-        #main()
+        #asyncio.run(scheduled_tasks())
+        main()
     except (KeyboardInterrupt, SystemExit):
         pass
