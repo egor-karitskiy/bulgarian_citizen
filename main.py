@@ -280,17 +280,18 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     return ConversationHandler.END
 
-
-def main() -> None:
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
-    log('main', 'Application started')
+def scheduled_tasks():
     scheduler = AsyncIOScheduler()
     scheduler.start()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=23)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', days=5)
     scheduler.add_job(send_announce_message, 'interval', hours=11)
-
     log('main', 'Checking routines have been started')
+
+def main() -> None:
+    scheduled_tasks()
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    log('main', 'Application started')
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -340,8 +341,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
     try:
         main()
     except (KeyboardInterrupt, SystemExit):
