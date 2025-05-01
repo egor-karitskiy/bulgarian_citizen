@@ -89,7 +89,7 @@ def append_new_status(user_id, status_text):
         sql_insert_query = f""" INSERT INTO statuses (user_id, status, status_date) VALUES (%s,%s,%s)"""
 
         lines_count = status_text.count('\n')
-        year_date_text = re.search("(\d\d\.\d\d\.\d{4})", status_text)
+        year_date_text = re.search(r"(\d\d\.\d\d\.\d{4})", status_text)
 
         if lines_count == 1 and 'Образувана преписка' in status_text and year_date_text is not None:
             year_date_text = year_date_text.group(1)
