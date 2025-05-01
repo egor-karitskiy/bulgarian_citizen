@@ -282,6 +282,8 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 def scheduled_tasks():
     scheduler = AsyncIOScheduler()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     scheduler.start()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=23)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', days=5)
@@ -342,8 +344,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+
         main()
     except (KeyboardInterrupt, SystemExit):
         pass
