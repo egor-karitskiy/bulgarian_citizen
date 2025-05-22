@@ -3,9 +3,9 @@ import logging
 import datetime
 import time
 import asyncio
+import nest_asyncio
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.schedulers.background import BackgroundScheduler
 from dotenv import load_dotenv
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 
@@ -43,6 +43,10 @@ from db_operations import (
     update_user_petition_number,
     user_email_from_db,
 )
+
+
+
+nest_asyncio.apply()
 
 time.sleep(3)
 
@@ -282,18 +286,16 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
-async def scheduled_tasks():
-    scheduler = AsyncIOScheduler()
+async def scheduled_tasks(scheduler):
     scheduler.configure(timezone="Europe/Moscow")
     scheduler.start()
     scheduler.add_job(checking_statuses_routine, 'interval', hours=23)
     scheduler.add_job(database_empty_creds_cleaner, 'interval', days=5)
     scheduler.add_job(send_announce_message, 'interval', hours=11)
     log('main', 'Checking routines have been started')
-    while True:
-        await asyncio.sleep(1000)
 
-def main() -> None:
+
+async def main() -> None:
     application = Application.builder().token(TELEGRAM_TOKEN).build()
     log('main', 'Application started')
 
@@ -339,14 +341,23 @@ def main() -> None:
     application.add_handler(conv_handler)
     application.add_handler(email_handler)
     application.add_handler(CommandHandler("start", start))
-    asyncio.run(scheduled_tasks())
-    application.run_polling(close_loop=False)
 
-    log('main', 'Application has been stopped')
+    scheduler = AsyncIOScheduler()
+    scheduler.configure(timezone="Europe/Moscow")
+    scheduler.add_job(checking_statuses_routine, 'interval', hours=23)
+    scheduler.add_job(database_empty_creds_cleaner, 'interval', days=5)
+    scheduler.add_job(send_announce_message, 'interval', hours=11)
+
+    scheduler.start()
+    log('main', 'Checking routines have been started')
+
+    application.run_polling()
+
+    log('main', 'Application stopped')
 
 
 if __name__ == "__main__":
     try:
-        main()
+        asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         pass
